@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Operator Authentication - AI Biometric Gateway</title>
+  <link rel="stylesheet" href="global.css">
+  <style>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 1.5rem;
+      background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+    }
+
+    .login-container {
+      display: flex;
+      width: 100%;
+      max-width: 500px;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 20px 50px rgba(15, 23, 42, 0.06);
+      position: relative;
+    }
+
+    .login-container::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.02);
+    }
+
+    /* Left Branding/Animation Panel */
+    .branding-panel {
+      flex: 1.3;
+      background: radial-gradient(circle at 0% 0%, #1e3a8a 0%, #0f172a 100%);
+      padding: 3rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      position: relative;
+      overflow: hidden;
+      border-right: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .branding-panel::before {
+      content: '';
+      position: absolute;
+      width: 150%;
+      height: 150%;
+      top: -25%;
+      left: -25%;
+      background-image: 
+        radial-gradient(rgba(59, 130, 246, 0.05) 1px, transparent 1px),
+        linear-gradient(rgba(59, 130, 246, 0.01) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(59, 130, 246, 0.01) 1px, transparent 1px);
+      background-size: 16px 16px, 32px 32px, 32px 32px;
+      opacity: 0.4;
+      transform: rotate(10deg);
+    }
+
+    .brand-top {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      z-index: 2;
+    }
+
+    .brand-logo-svg {
+      color: var(--color-secure);
+      filter: drop-shadow(0 0 8px var(--color-secure-glow));
+    }
+
+    .brand-top h2 {
+      font-family: var(--font-title);
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      color: #ffffff;
+    }
+
+    /* Telemetry Target Face Box */
+    .scanner-graphic-wrapper {
+      position: relative;
+      width: 240px;
+      height: 240px;
+      margin: auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2;
+    }
+
+    .scan-circle-outer {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border: 1px solid rgba(37, 99, 235, 0.2);
+      border-radius: 50%;
+      border-top-color: var(--color-secure);
+      animation: rotate-clockwise 10s linear infinite;
+    }
+
+    .scan-circle-inner {
+      position: absolute;
+      width: 82%;
+      height: 82%;
+      border: 1px dashed rgba(59, 130, 246, 0.2);
+      border-radius: 50%;
+      border-bottom-color: var(--color-accent);
+      animation: rotate-counter 12s linear infinite;
+    }
+
+    .security-blueprint-face {
+      z-index: 3;
+      color: rgba(96, 165, 250, 0.85);
+      filter: drop-shadow(0 0 12px rgba(37, 99, 235, 0.4));
+      animation: pulse-face 4s ease-in-out infinite;
+    }
+
+    .status-terminal-ticker {
+      position: absolute;
+      bottom: 2rem;
+      left: 3rem;
+      z-index: 2;
+      font-family: monospace;
+      font-size: 0.7rem;
+      color: rgba(96, 165, 250, 0.5);
+      line-height: 1.6;
+    }
+
+    .status-terminal-ticker span {
+      display: block;
+    }
+
+    .branding-footer {
+      z-index: 2;
+      margin-top: 1.5rem;
+    }
+
+    .branding-footer h3 {
+      font-family: var(--font-title);
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: #ffffff;
+      margin-bottom: 0.4rem;
+    }
+
+    .branding-footer p {
+      color: #94a3b8;
+      font-size: 0.8rem;
+      line-height: 1.5;
+    }
+
+    /* Right Form Panel */
+    .form-panel {
+      flex: 1.1;
+      padding: 3.5rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      background: #ffffff;
+    }
+
+    .form-header {
+      margin-bottom: 2.25rem;
+    }
+
+    .form-header h1 {
+      font-family: var(--font-title);
+      font-size: 1.6rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      margin-bottom: 0.5rem;
+    }
+
+    .form-header p {
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+    }
+
+    .input-wrapper {
+      position: relative;
+    }
+
+    .input-icon {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+    }
+
+    .form-control-icon {
+      padding-left: 42px !important;
+      background: #ffffff !important;
+      border: 1px solid #cbd5e1 !important;
+      color: #0f172a !important;
+      font-size: 0.9rem !important;
+      border-radius: 10px !important;
+    }
+
+    .form-control-icon:focus {
+      border-color: var(--color-secure) !important;
+      box-shadow: 0 0 12px rgba(37, 99, 235, 0.15) !important;
+    }
+
+    .password-toggle {
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      padding: 4px;
+    }
+
+    .password-toggle:hover {
+      color: var(--text-secondary);
+    }
+
+    .form-options {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.75rem;
+      font-size: 0.8rem;
+    }
+
+    .remember-me {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      color: var(--text-secondary);
+    }
+
+    .remember-me input {
+      accent-color: var(--color-secure);
+    }
+
+    .forgot-link {
+      color: var(--color-secure);
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .forgot-link:hover {
+      text-decoration: underline;
+    }
+
+    .error-alert {
+      background: rgba(239, 68, 68, 0.08);
+      border: 1px solid rgba(239, 68, 68, 0.15);
+      color: var(--color-denied);
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      margin-bottom: 1.5rem;
+      display: none;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn-auth {
+      background: var(--color-secure);
+      color: #ffffff;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      padding: 0.8rem 1.5rem;
+      box-shadow: 0 4px 15px rgba(37, 99, 235, 0.15);
+      transition: all 0.25s;
+    }
+
+    .btn-auth:hover {
+      background: #3b82f6;
+      box-shadow: 0 4px 20px rgba(37, 99, 235, 0.3);
+    }
+
+    .register-prompt {
+      text-align: center;
+      margin-top: 1.75rem;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+    }
+
+    .register-prompt a {
+      color: var(--color-secure);
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .register-prompt a:hover {
+      text-decoration: underline;
+    }
+
+    @keyframes rotate-clockwise {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes rotate-counter {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(-360deg); }
+    }
+
+    @keyframes pulse-face {
+      0%, 100% { transform: scale(1); opacity: 0.85; }
+      50% { transform: scale(1.03); opacity: 1; filter: drop-shadow(0 0 15px rgba(37, 99, 235, 0.55)); }
+    }
+
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(37, 99, 235, 0.2);
+      border-top-color: #2563eb;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      display: none;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Strict compliance system notice warning footer */
+    .system-compliance-notice {
+      margin-top: 2rem;
+      border-top: 1px solid #cbd5e1;
+      padding-top: 1rem;
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+      text-align: justify;
+    }
+
+    @media (max-width: 576px) {
+      .login-container {
+        border-radius: 0;
+        box-shadow: none;
+        border: none;
+        min-height: 100vh;
+      }
+      .form-panel {
+        padding: 2.5rem 1.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="login-container">
+
+    <!-- Login Panel (Right) -->
+    <div class="form-panel">
+      <div class="form-header">
+        <h1>Terminal Clearance</h1>
+        <p>Provide secure operator credentials to initialize access.</p>
+      </div>
+
+      <div class="error-alert" id="errorAlert">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <span id="errorMessage">Authentication failed.</span>
+      </div>
+
+      <form id="loginForm" autocomplete="on">
+        <div class="form-group">
+          <label class="form-label" for="email">Operator Email Address</label>
+          <div class="input-wrapper">
+            <span class="input-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                <polyline points="22,6 12,13 2,6"></polyline>
+              </svg>
+            </span>
+            <input type="email" id="email" class="form-control form-control-icon" placeholder="operator@securepass.com" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="password">Operator Access Key</label>
+          <div class="input-wrapper">
+            <span class="input-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+              </svg>
+            </span>
+            <input type="password" id="password" class="form-control form-control-icon" placeholder="••••••••" required>
+            <button type="button" class="password-toggle" id="passwordToggle" aria-label="Toggle Password Visibility">
+              <svg id="eyeIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="form-options">
+          <label class="remember-me">
+            <input type="checkbox" id="rememberMe">
+            <span>Remember Operator</span>
+          </label>
+          <a href="#" class="forgot-link" id="forgotLink">Request Key Reset</a>
+        </div>
+
+        <button type="submit" class="btn btn-auth btn-block" id="submitBtn">
+          <span>Authorize Access</span>
+          <div class="spinner" id="btnSpinner"></div>
+        </button>
+      </form>
+
+      <div class="register-prompt">
+        <span>Provision new terminal? </span>
+        <a href="register.html">Register Operator</a>
+      </div>
+
+      <div class="system-compliance-notice">
+        NOTICE: This system is private property. All connection attempts, telemetry scans, and data modifications are monitored under security protocol protocols. Unauthorized access attempts will be blocked and flagged immediately.
+      </div>
+    </div>
+  </div>
+
+  <script src="global.js"></script>
+  <script>
+    // Redirect if already logged in
+    if (Auth.getCurrentUser()) {
+      window.location.href = 'dashboard.html';
+    }
+
+    const form = document.getElementById('loginForm');
+    const emailInput = document.getElementById('email');
+    const passwordInput = document.getElementById('password');
+    const submitBtn = document.getElementById('submitBtn');
+    const btnSpinner = document.getElementById('btnSpinner');
+    const errorAlert = document.getElementById('errorAlert');
+    const errorMessage = document.getElementById('errorMessage');
+    const passwordToggle = document.getElementById('passwordToggle');
+    const eyeIcon = document.getElementById('eyeIcon');
+    const forgotLink = document.getElementById('forgotLink');
+
+    // Password visibility toggle
+    passwordToggle.addEventListener('click', () => {
+      const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+      passwordInput.setAttribute('type', type);
+      
+      if (type === 'text') {
+        eyeIcon.innerHTML = `
+          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+          <line x1="1" y1="1" x2="23" y2="23"></line>
+        `;
+      } else {
+        eyeIcon.innerHTML = `
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+          <circle cx="12" cy="12" r="3"></circle>
+        `;
+      }
+    });
+
+    // Form submit handlers
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      
+      // Clear errors
+      errorAlert.style.display = 'none';
+      submitBtn.disabled = true;
+      submitBtn.querySelector('span').textContent = 'Authenticating operator...';
+      btnSpinner.style.display = 'block';
+
+      // Mock network delay (750ms)
+      setTimeout(() => {
+        const email = emailInput.value.trim();
+        const password = passwordInput.value;
+
+        const result = Auth.login(email, password);
+        
+        if (result.success) {
+          Toast.show(`Clearance Granted. Welcome, ${result.user.name}.`, 'secure');
+          setTimeout(() => {
+            window.location.href = 'dashboard.html';
+          }, 800);
+        } else {
+          errorMessage.textContent = 'Invalid Operator email or security access key.';
+          errorAlert.style.display = 'flex';
+          submitBtn.disabled = false;
+          submitBtn.querySelector('span').textContent = 'Authorize Access';
+          btnSpinner.style.display = 'none';
+        }
+      }, 750);
+    });
+
+    forgotLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      Toast.show("Credentials: admin@securepass.com (Admin@123) / security@securepass.com (Security@123)", "warning");
+    });
+  </script>
+</body>
+</html>

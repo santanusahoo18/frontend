@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Register Visitor - AI Security Gate Pass</title>
+  <link rel="stylesheet" href="global.css">
+  <style>
+    .split-layout {
+      display: grid;
+      grid-template-columns: 1fr 1.2fr;
+      gap: 1.5rem;
+      align-items: start;
+    }
+
+    /* Webcam Capture container */
+    .photo-capture-card {
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .capture-box {
+      width: 100%;
+      max-width: 320px;
+      aspect-ratio: 1;
+      background: #1e293b;
+      border: 1px solid var(--border-color);
+      border-radius: var(--border-radius);
+      margin-bottom: 1.25rem;
+      overflow: hidden;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: inset 0 0 10px rgba(15, 23, 42, 0.05);
+    }
+
+    #fallbackCameraText {
+      color: #ffffff !important;
+    }
+
+    #fallbackCameraText svg {
+      color: #ffffff !important;
+    }
+
+    #fallbackCameraText p {
+      color: #ffffff !important;
+    }
+
+    #fallbackCameraText small {
+      color: #bfdbfe !important;
+    }
+
+    #captureVideo {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+    }
+
+    #capturedCanvas {
+      display: none;
+    }
+
+    #photoPreview {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: none;
+    }
+
+    .capture-badge {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid var(--border-color);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      font-weight: 600;
+      color: var(--text-secondary);
+      z-index: 10;
+    }
+
+    .capture-controls {
+      display: flex;
+      gap: 8px;
+      width: 100%;
+      justify-content: center;
+    }
+
+    /* Grid forms layout */
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    .form-span-2 {
+      grid-column: span 2;
+    }
+
+    @media (max-width: 768px) {
+      .split-layout {
+        grid-template-columns: 1fr;
+      }
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+      .form-span-2 {
+        grid-column: span 1;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+    <main class="main-content">
+      
+      <div class="content-header">
+        <div class="page-title">
+          <h1>Biometric Registration Portal</h1>
+          <p>Provision new employees or visitors in the gate system database</p>
+        </div>
+      </div>
+
+      <div class="split-layout">
+        <!-- Photo Snapshot Capture (Left) -->
+        <div class="card photo-capture-card">
+          <h2 style="font-size:1.1rem; font-family:var(--font-title); font-weight:700; margin-bottom:1rem; align-self:flex-start;">Operator Snapshot Capture</h2>
+          
+          <div class="capture-box">
+            <span class="capture-badge" id="captureState">Live Video</span>
+            
+            <video id="captureVideo" autoplay playsinline muted></video>
+            <img id="photoPreview" src="" alt="Captured Snapshot">
+            <canvas id="capturedCanvas"></canvas>
+            
+            <div id="fallbackCameraText" style="color:var(--text-muted); font-size:0.85rem; text-align:center; padding:1.5rem; display:none; z-index:5;">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-bottom:10px; color:var(--text-muted);">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                <circle cx="12" cy="13" r="4"></circle>
+              </svg>
+              <p>Camera feed offline.</p>
+              <small>Click "Use Test Photo" to mock registration biometric data.</small>
+            </div>
+          </div>
+
+          <div class="capture-controls">
+            <button class="btn btn-secondary" id="snapBtn" onclick="takeSnapshot()">
+              Capture Snapshot
+            </button>
+            <button class="btn btn-secondary" id="resetBtn" onclick="resetCamera()" style="display:none;">
+              Retake
+            </button>
+            <button class="btn btn-secondary" onclick="useMockPhoto()" style="border-color:var(--color-accent); color:var(--color-accent);">
+              Use Test Photo
+            </button>
+          </div>
+        </div>
+
+        <!-- Registry Forms Data (Right) -->
+        <div class="card">
+          <h2 style="font-size:1.1rem; font-family:var(--font-title); font-weight:700; margin-bottom:1rem;">Visitor Credentials Registry</h2>
+          
+          <form id="personForm">
+            <div class="form-grid">
+              
+              <div class="form-group form-span-2">
+                <label class="form-label" for="fullName">Full Name</label>
+                <input type="text" id="fullName" class="form-control" placeholder="Vikram Malhotra" required>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="category">Category</label>
+                <select id="category" class="form-control" onchange="toggleCategoryFields()" required>
+                  <option value="Visitor">Visitor</option>
+                  <option value="Employee">Employee</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="empId">Generated ID Number</label>
+                <input type="text" id="empId" class="form-control" readonly>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="adharNo">Aadhaar Card Number (12 Digit)</label>
+                <input type="text" id="adharNo" class="form-control" placeholder="112233445566" required pattern="[0-9]{12}">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="phone">Contact Mobile</label>
+                <input type="tel" id="phone" class="form-control" placeholder="9898989898" required pattern="[0-9]{10}">
+              </div>
+
+              <div class="form-group form-span-2">
+                <label class="form-label" for="purpose">Purpose of Entry / Department</label>
+                <input type="text" id="purpose" class="form-control" placeholder="Meeting with Hr Manager" required>
+              </div>
+
+              <div class="form-group form-span-2">
+                <label class="form-label" for="address">Residential Address</label>
+                <input type="text" id="address" class="form-control" placeholder="Apartment 4B, Skyview Towers, Bangalore" required>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Gate Pass Start Time</label>
+                <input type="text" class="form-control" value="9:00 AM" disabled>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Gate Pass Expire Time</label>
+                <input type="text" class="form-control" value="5:00 PM (Same Day)" disabled>
+              </div>
+
+            </div>
+
+            <div style="margin-top: 1.5rem; display:flex; justify-content:flex-end; gap:10px;">
+              <button type="button" class="btn btn-secondary" onclick="window.location.href='dashboard.html'">Cancel</button>
+              <button type="submit" class="btn btn-primary">Save Registry & Generate Pass</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <script src="global.js"></script>
+  <script>
+    Auth.requireAuth();
+
+    const video = document.getElementById('captureVideo');
+    const photoPreview = document.getElementById('photoPreview');
+    const canvas = document.getElementById('capturedCanvas');
+    const snapBtn = document.getElementById('snapBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const captureState = document.getElementById('captureState');
+    const fallbackCameraText = document.getElementById('fallbackCameraText');
+    const empIdInput = document.getElementById('empId');
+    const form = document.getElementById('personForm');
+
+    let streamRef = null;
+    let base64PhotoData = '';
+
+    // Automatically generate Visitor/Employee ID code on load
+    const generateId = () => {
+      const isEmp = document.getElementById('category').value === 'Employee';
+      const prefix = isEmp ? 'EMP' : 'VIS';
+      const num = Math.floor(100 + Math.random() * 900);
+      empIdInput.value = `${prefix}-${num}`;
+    };
+
+    const toggleCategoryFields = () => {
+      generateId();
+    };
+
+    // Camera Init
+    navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 320 } })
+      .then(stream => {
+        streamRef = stream;
+        video.srcObject = stream;
+      })
+      .catch(err => {
+        console.warn("webcam unavailable for capture snapshot", err);
+        video.style.display = 'none';
+        fallbackCameraText.style.display = 'block';
+        snapBtn.disabled = true;
+      });
+
+    // Capture Snap action
+    const takeSnapshot = () => {
+      if (!streamRef) return;
+      
+      canvas.width = 320;
+      canvas.height = 320;
+      
+      const ctx = canvas.getContext('2d');
+      // Mirror the draw back
+      ctx.translate(320, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(video, 0, 0, 320, 320);
+      
+      base64PhotoData = canvas.toDataURL('image/jpeg');
+      
+      video.style.display = 'none';
+      photoPreview.src = base64PhotoData;
+      photoPreview.style.display = 'block';
+      
+      snapBtn.style.display = 'none';
+      resetBtn.style.display = 'inline-flex';
+      captureState.textContent = "Captured";
+      captureState.style.color = "var(--color-secure)";
+    };
+
+    const resetCamera = () => {
+      video.style.display = 'block';
+      photoPreview.style.display = 'none';
+      photoPreview.src = '';
+      base64PhotoData = '';
+      
+      snapBtn.style.display = 'inline-flex';
+      resetBtn.style.display = 'none';
+      captureState.textContent = "Live Video";
+      captureState.style.color = "";
+    };
+
+    const useMockPhoto = () => {
+      base64PhotoData = MOCK_AVATARS.visitor1;
+      video.style.display = 'none';
+      fallbackCameraText.style.display = 'none';
+      photoPreview.src = base64PhotoData;
+      photoPreview.style.display = 'block';
+      
+      snapBtn.style.display = 'none';
+      resetBtn.style.display = 'inline-flex';
+      captureState.textContent = "Mock Biometric Loaded";
+      captureState.style.color = "var(--color-accent)";
+    };
+
+    // Form submission
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      
+      if (!base64PhotoData) {
+        Toast.show("Capture a visitor photo snapshot to complete biometrics registration.", "warning");
+        return;
+      }
+
+      // Check if Aadhaar is blacklisted
+      const adhar = document.getElementById('adharNo').value;
+      if (Db.isBlacklisted(adhar)) {
+        const blacklistData = Db.getBlacklistEntry(adhar);
+        Toast.show(`REGISTRATION REJECTED: Aadhaar is blacklisted! Reason: ${blacklistData.reason}`, 'denied');
+        return;
+      }
+
+      // Check duplicate Aadhaar
+      if (Db.getPersonByAadhaar(adhar)) {
+        Toast.show('Person is already registered under this Aadhaar.', 'warning');
+        return;
+      }
+
+      const pId = 'person_' + Date.now();
+      const personObj = {
+        id: pId,
+        name: document.getElementById('fullName').value.trim(),
+        adhar: adhar,
+        address: document.getElementById('address').value.trim(),
+        phone: document.getElementById('phone').value.trim(),
+        category: document.getElementById('category').value,
+        empId: empIdInput.value,
+        purpose: document.getElementById('purpose').value.trim(),
+        photo: base64PhotoData
+      };
+
+      Db.addPerson(personObj);
+      Toast.show(`Registry complete! Opening Gate Pass...`, 'secure');
+      
+      setTimeout(() => {
+        // Stop camera tracks before switching page
+        if (streamRef) {
+          streamRef.getTracks().forEach(track => track.stop());
+        }
+        window.location.href = `print-preview.html?id=${pId}`;
+      }, 1000);
+    });
+
+    // Run generators
+    generateId();
+
+    window.addEventListener('beforeunload', () => {
+      if (streamRef) {
+        streamRef.getTracks().forEach(track => track.stop());
+      }
+    });
+  </script>
+</body>
+</html>

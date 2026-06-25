@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Security Dashboard - AI Security Gate Pass</title>
+  <link rel="stylesheet" href="global.css">
+  <style>
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .metric-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--border-radius);
+      padding: 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: var(--glass-shadow);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .metric-info h3 {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.5rem;
+    }
+
+    .metric-value {
+      font-family: var(--font-title);
+      font-size: 2rem;
+      font-weight: 700;
+    }
+
+    .metric-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(99, 102, 241, 0.1);
+      color: var(--color-accent);
+    }
+
+    .metric-card.secure .metric-icon {
+      background: rgba(16, 185, 129, 0.1);
+      color: var(--color-secure);
+    }
+    .metric-card.denied .metric-icon {
+      background: rgba(239, 68, 68, 0.1);
+      color: var(--color-denied);
+    }
+    .metric-card.warning .metric-icon {
+      background: rgba(245, 158, 11, 0.1);
+      color: var(--color-warning);
+    }
+
+    /* Layout column grid */
+    .layout-columns {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+    }
+
+    /* Face scanner module container */
+    .scanner-section {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    .camera-frame {
+      position: relative;
+      width: 100%;
+      height: 400px;
+      background: #1e293b;
+      border-radius: var(--border-radius);
+      border: 1px solid var(--border-color);
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: inset 0 0 10px rgba(15, 23, 42, 0.05);
+      margin-bottom: 1.25rem;
+    }
+
+    #webcamVideo {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+    }
+
+    .camera-fallback {
+      position: absolute;
+      text-align: center;
+      z-index: 2;
+      color: #ffffff;
+    }
+
+    .camera-fallback svg {
+      color: #ffffff !important;
+    }
+
+    .camera-fallback p {
+      color: #ffffff !important;
+      font-weight: 600;
+    }
+
+    .camera-fallback small {
+      color: #bfdbfe !important;
+    }
+
+    .scanner-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      border: 2px solid transparent;
+      pointer-events: none;
+      z-index: 10;
+      transition: border-color 0.3s;
+    }
+
+    .scanner-overlay.scanning {
+      border-color: rgba(99, 102, 241, 0.4);
+    }
+
+    .scanner-overlay.granted {
+      border-color: var(--color-secure);
+      box-shadow: inset 0 0 40px rgba(16, 185, 129, 0.2);
+    }
+
+    .scanner-overlay.denied {
+      border-color: var(--color-denied);
+      box-shadow: inset 0 0 40px rgba(239, 68, 68, 0.2);
+    }
+
+    .scanner-overlay.warning {
+      border-color: var(--color-warning);
+      box-shadow: inset 0 0 40px rgba(245, 158, 11, 0.2);
+    }
+
+    .scanner-reticle {
+      position: absolute;
+      width: 220px;
+      height: 220px;
+      border: 2px dashed rgba(255, 255, 255, 0.2);
+      border-radius: 50%;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      transition: all 0.3s;
+    }
+
+    .scanner-overlay.scanning .scanner-reticle {
+      border-color: var(--color-accent);
+      border-style: solid;
+      transform: translate(-50%, -50%) scale(1.05);
+      box-shadow: 0 0 20px var(--color-accent-glow);
+    }
+
+    .scanner-overlay.granted .scanner-reticle {
+      border-color: var(--color-secure);
+      border-style: solid;
+      transform: translate(-50%, -50%) scale(1.1);
+      box-shadow: 0 0 35px var(--color-secure-glow);
+    }
+
+    .scanner-overlay.denied .scanner-reticle {
+      border-color: var(--color-denied);
+      border-style: solid;
+      transform: translate(-50%, -50%) scale(1.1);
+      box-shadow: 0 0 35px var(--color-denied-glow);
+    }
+
+    .scanner-overlay.warning .scanner-reticle {
+      border-color: var(--color-warning);
+      border-style: solid;
+      transform: translate(-50%, -50%) scale(1.1);
+      box-shadow: 0 0 35px var(--color-warning-glow);
+    }
+
+    .status-panel {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 0.5rem 1.5rem;
+      backdrop-filter: blur(10px);
+      z-index: 15;
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      display: none;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .scanner-overlay.scanning .status-panel,
+    .scanner-overlay.granted .status-panel,
+    .scanner-overlay.denied .status-panel,
+    .scanner-overlay.warning .status-panel {
+      display: flex;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-muted);
+    }
+
+    .scanner-overlay.scanning .status-dot {
+      background: var(--color-accent);
+      box-shadow: 0 0 8px var(--color-accent);
+      animation: pulse-dot 1s infinite;
+    }
+    .scanner-overlay.granted .status-dot {
+      background: var(--color-secure);
+      box-shadow: 0 0 8px var(--color-secure);
+    }
+    .scanner-overlay.denied .status-dot {
+      background: var(--color-denied);
+      box-shadow: 0 0 8px var(--color-denied);
+    }
+
+    @keyframes pulse-dot {
+      50% { opacity: 0.3; }
+    }
+
+    /* Logs panel styles */
+    .logs-section {
+      display: flex;
+      flex-direction: column;
+      height: 480px;
+    }
+
+    .logs-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .logs-header h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-secondary);
+    }
+
+    .logs-list {
+      flex-grow: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      padding-right: 5px;
+    }
+
+    .log-item {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      display: flex;
+      gap: 12px;
+      font-size: 0.85rem;
+      align-items: flex-start;
+      transition: background 0.2s;
+      cursor: pointer;
+    }
+
+    .log-item:hover {
+      background: var(--bg-tertiary);
+    }
+
+    .log-indicator {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      margin-top: 6px;
+      flex-shrink: 0;
+    }
+
+    .log-item.secure .log-indicator { background: var(--color-secure); }
+    .log-item.denied .log-indicator { background: var(--color-denied); }
+    .log-item.warning .log-indicator { background: var(--color-warning); }
+
+    .log-time {
+      font-family: var(--font-title);
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      white-space: nowrap;
+    }
+
+    .log-text {
+      flex-grow: 1;
+      line-height: 1.4;
+    }
+
+    .log-text strong {
+      color: var(--text-primary);
+    }
+
+    /* Simulation Controller */
+    .controls-panel {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    /* Scanner info card popups */
+    .scanned-details-modal {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+    }
+
+    .scanned-photo {
+      width: 100px;
+      height: 100px;
+      border-radius: 8px;
+      border: 2px solid var(--border-color);
+      object-fit: cover;
+      background: var(--bg-tertiary);
+    }
+
+    .scanned-photo.denied {
+      border-color: var(--color-denied);
+    }
+    .scanned-photo.secure {
+      border-color: var(--color-secure);
+    }
+
+    .scanned-info-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .scanned-info-row {
+      font-size: 0.9rem;
+    }
+    .scanned-info-row strong {
+      color: var(--text-secondary);
+    }
+
+    @media (max-width: 1024px) {
+      .dashboard-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+      .layout-columns {
+        grid-template-columns: 1fr;
+      }
+    }
+    @media (max-width: 640px) {
+      .dashboard-grid {
+        grid-template-columns: 1fr;
+      }
+      .controls-panel {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+    <main class="main-content">
+      
+      <div class="content-header">
+        <div class="page-title">
+          <h1>Security Intelligence Center</h1>
+          <p id="liveDate">Access control, facial telemetry scanning and gate pass registry logs</p>
+        </div>
+        <div class="status-badge secure">
+          <div style="width:8px; height:8px; border-radius:50%; background-color: var(--color-secure); animation: pulse-dot 1.5s infinite;"></div>
+          <span>System Online</span>
+        </div>
+      </div>
+
+      <!-- Quick Metrics -->
+      <div class="dashboard-grid">
+        <div class="card metric-card card-premium secure">
+          <div class="metric-info">
+            <h3>Active Registry</h3>
+            <div class="metric-value" id="countPeople">0</div>
+          </div>
+          <div class="metric-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+          </div>
+        </div>
+
+        <div class="card metric-card card-premium secure">
+          <div class="metric-info">
+            <h3>Passes Printed</h3>
+            <div class="metric-value" id="countPasses">0</div>
+          </div>
+          <div class="metric-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="16" y1="2" x2="16" y2="6"></line>
+              <line x1="8" y1="2" x2="8" y2="6"></line>
+              <line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg>
+          </div>
+        </div>
+
+        <div class="card metric-card card-premium denied">
+          <div class="metric-info">
+            <h3>Banned Threats</h3>
+            <div class="metric-value" id="countBlacklist">0</div>
+          </div>
+          <div class="metric-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+              <line x1="12" y1="9" x2="12" y2="13"></line>
+              <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </svg>
+          </div>
+        </div>
+
+        <div class="card metric-card card-premium warning">
+          <div class="metric-info">
+            <h3>System Status</h3>
+            <div class="metric-value" id="countAlerts" style="font-size: 1.25rem; font-weight: 600; color: var(--color-secure);">SECURE</div>
+          </div>
+          <div class="metric-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Layout Split Columns -->
+      <div class="layout-columns">
+        <!-- Live Scanner View -->
+        <div class="card scanner-section card-premium">
+          <div class="hud-container">
+            <div class="hud-corner top-left"></div>
+            <div class="hud-corner top-right"></div>
+            <div class="hud-corner bottom-left"></div>
+            <div class="hud-corner bottom-right"></div>
+            <div class="scan-line" id="camScanLine"></div>
+            
+            <!-- Video feed window -->
+            <div class="camera-frame">
+              <video id="webcamVideo" autoplay playsinline muted></video>
+              
+              <div class="camera-fallback" id="webcamFallback">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-muted); margin-bottom:1rem;">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                  <circle cx="12" cy="13" r="4"></circle>
+                </svg>
+                <p>Biometric Camera Feed</p>
+                <small style="color:var(--text-muted); opacity:0.7;">Webcam is offline. Use simulation actions below.</small>
+              </div>
+
+              <!-- Glowing scanner overlay boundary -->
+              <div class="scanner-overlay" id="scannerOverlay">
+                <div class="scanner-reticle"></div>
+                <div class="status-panel">
+                  <div class="status-dot"></div>
+                  <span id="scannerStatusText"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Simulation Triggers for User Verification -->
+          <div style="margin-top: 1.5rem;">
+            <h4 style="font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); margin-bottom: 8px;">Trigger Simulation Scans (Manual Test Checks)</h4>
+            <div class="controls-panel">
+              <button class="btn btn-secondary" onclick="simulateScan('known_emp')" style="border-color: rgba(16, 185, 129, 0.4); text-transform: uppercase; font-size:0.75rem;">
+                Scan Known Employee
+              </button>
+              <button class="btn btn-secondary" onclick="simulateScan('unknown_vis')" style="border-color: rgba(245, 158, 11, 0.4); text-transform: uppercase; font-size:0.75rem;">
+                Scan Unknown Visitor
+              </button>
+              <button class="btn btn-secondary" onclick="simulateScan('blacklisted')" style="border-color: rgba(239, 68, 68, 0.4); text-transform: uppercase; font-size:0.75rem;">
+                Scan Blacklisted Face
+              </button>
+            </div>
+          </div>
+        </div>
+
+
+      </div>
+
+
+    </main>
+  </div>
+
+  <!-- Scan Details Modal Overlay -->
+  <div class="modal-overlay" id="scanModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" id="modalTitle">Scan Telemetry Report</h3>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="modal-body" id="modalBody">
+        <!-- populated dynamically -->
+      </div>
+      <div class="modal-footer" id="modalFooter">
+        <!-- populated dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <script src="global.js"></script>
+  <script>
+    Auth.requireAuth();
+
+    // Elements
+    const video = document.getElementById('webcamVideo');
+    const fallback = document.getElementById('webcamFallback');
+    const scannerOverlay = document.getElementById('scannerOverlay');
+    const scannerStatusText = document.getElementById('scannerStatusText');
+    const camScanLine = document.getElementById('camScanLine');
+    const scanModal = document.getElementById('scanModal');
+    const liveDate = document.getElementById('liveDate');
+
+    // Dashboard metrics
+    const countPeople = document.getElementById('countPeople');
+    const countPasses = document.getElementById('countPasses');
+    const countBlacklist = document.getElementById('countBlacklist');
+    const countAlerts = document.getElementById('countAlerts');
+
+    // Live Clock Updates
+    const updateClock = () => {
+      const now = new Date();
+      liveDate.textContent = "Access control terminal - " + now.toLocaleString('en-US', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+        hour: '2-digit', minute: '2-digit', second: '2-digit'
+      });
+    };
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // Webcam Access
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then(stream => {
+        video.srcObject = stream;
+        fallback.style.display = 'none';
+      })
+      .catch(err => {
+        console.warn("Webcam blocked or not available. Running fallback scan simulations.", err);
+        video.style.display = 'none';
+      });
+
+
+
+    // Update Counter metrics & conic gauge clearance rate
+    const updateMetrics = () => {
+      const people = Db.getPeople();
+      const blacklist = Db.getBlacklist();
+      const logs = Db.getLogs();
+      
+      countPeople.textContent = people.length;
+      countBlacklist.textContent = blacklist.length;
+      
+      // Pass count matches people count + historical issuances
+      countPasses.textContent = people.length + 11;
+      
+      // Active alert count: warning & denied entries
+      const alertLogs = logs.filter(l => l.type === 'denied' || l.type === 'warning').length;
+      countAlerts.textContent = alertLogs > 0 ? alertLogs : "SECURE";
+      countAlerts.style.color = alertLogs > 0 ? 'var(--color-warning)' : 'var(--color-secure)';
+    };
+
+    // Close Modal helper
+    const closeModal = () => {
+      scanModal.classList.remove('active');
+      scannerOverlay.className = "scanner-overlay";
+      scannerStatusText.textContent = "";
+      camScanLine.className = "scan-line";
+    };
+
+    // Listen for real-time log additions
+    window.addEventListener('sec_log_added', () => {
+      updateMetrics();
+    });
+
+    // Simulation Scan Runner
+    const simulateScan = (scanType) => {
+      // Trigger processing beep
+      AudioFeedback.playProcessing();
+      
+      // Set to scanning states
+      scannerOverlay.className = "scanner-overlay scanning";
+      scannerStatusText.textContent = "Scanning Biometrics...";
+      camScanLine.className = "scan-line";
+      
+      // Delay simulate scan (1.5s)
+      setTimeout(() => {
+        let modalHtml = '';
+        let modalTitleText = '';
+        let footerHtml = '';
+
+        if (scanType === 'known_emp') {
+          // Fetch an employee from db
+          const emps = Db.getPeople().filter(p => p.category === 'Employee');
+          if (emps.length === 0) {
+            Toast.show('No employees registered. Register one first!', 'warning');
+            closeModal();
+            return;
+          }
+          const randomEmp = emps[Math.floor(Math.random() * emps.length)];
+          
+          AudioFeedback.playSuccess();
+          scannerOverlay.className = "scanner-overlay granted";
+          scannerStatusText.textContent = "Access Granted";
+          
+          modalTitleText = "Access Cleared — Auto Gate Pass";
+          modalHtml = `
+            <div class="scanned-details-modal">
+              <img src="${randomEmp.photo}" class="scanned-photo secure" alt="Photo">
+              <div class="scanned-info-rows">
+                <div class="scanned-info-row"><strong>Name:</strong> ${randomEmp.name}</div>
+                <div class="scanned-info-row"><strong>Role/Category:</strong> ${randomEmp.category}</div>
+                <div class="scanned-info-row"><strong>Aadhaar No:</strong> ${randomEmp.adhar}</div>
+                <div class="scanned-info-row"><strong>Validity:</strong> 9:00 AM - 5:00 PM (Active)</div>
+                <div class="scanned-info-row"><span class="status-badge secure" style="padding: 2px 6px;">Clear</span></div>
+              </div>
+            </div>
+          `;
+          
+          footerHtml = `
+            <button class="btn btn-secondary" onclick="closeModal()">Close</button>
+            <button class="btn btn-primary" onclick="generatePass('${randomEmp.id}')">Print Gate Pass</button>
+          `;
+
+          // Add to log
+          Db.addLog('secure', `Biometric clear: ${randomEmp.name} (${randomEmp.category}) matched. Pass issuing cleared.`);
+
+        } else if (scanType === 'blacklisted') {
+          // Fetch blacklisted person
+          const blacklist = Db.getBlacklist();
+          if (blacklist.length === 0) {
+            Toast.show('No blacklist entries. Block a person first!', 'warning');
+            closeModal();
+            return;
+          }
+          const blocked = blacklist[Math.floor(Math.random() * blacklist.length)];
+          
+          AudioFeedback.playWarning();
+          scannerOverlay.className = "scanner-overlay denied";
+          scannerStatusText.textContent = "ACCESS BLOCKED / DENIED";
+          camScanLine.className = "scan-line alert";
+
+          modalTitleText = "WARNING: Access Denied / Blacklisted";
+          modalHtml = `
+            <div class="scanned-details-modal">
+              <img src="${blocked.photo}" class="scanned-photo denied" alt="Photo">
+              <div class="scanned-info-rows">
+                <div class="scanned-info-row" style="color:var(--color-denied); font-weight:700;">Biometric Threat Alert</div>
+                <div class="scanned-info-row"><strong>Name:</strong> ${blocked.name}</div>
+                <div class="scanned-info-row"><strong>Aadhaar No:</strong> ${blocked.adhar}</div>
+                <div class="scanned-info-row"><strong>Reason Blocked:</strong> <span style="color:var(--color-denied)">${blocked.reason}</span></div>
+                <div class="scanned-info-row"><span class="status-badge denied" style="padding: 2px 6px;">Blacklisted</span></div>
+              </div>
+            </div>
+          `;
+          
+          footerHtml = `
+            <button class="btn btn-danger btn-block" onclick="closeModal()">Close & Dispatch Alert</button>
+          `;
+
+          Db.addLog('denied', `Biometric block: Blacklisted person ${blocked.name} attempted entry. Reason: ${blocked.reason}.`);
+          Toast.show(`CRITICAL ALERT: Blacklist access attempt for ${blocked.name}!`, 'denied');
+
+        } else if (scanType === 'unknown_vis') {
+          AudioFeedback.playWarning();
+          scannerOverlay.className = "scanner-overlay warning";
+          scannerStatusText.textContent = "Visit Security - Unknown Face";
+          camScanLine.className = "scan-line";
+
+          modalTitleText = "Telemetry Match Status: Unrecognized Face";
+          modalHtml = `
+            <div class="scanned-details-modal">
+              <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--color-warning); background:var(--bg-secondary); border-radius:8px; padding:10px;">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+              <div class="scanned-info-rows">
+                <div class="scanned-info-row" style="color:var(--color-warning); font-weight:700;">Visitor Registration Required</div>
+                <p style="font-size:0.85rem; color:var(--text-secondary); max-width:280px;">No matching biometric facial signature could be found in the registry database. Please direct the visitor to the security registration terminal.</p>
+              </div>
+            </div>
+          `;
+          
+          footerHtml = `
+            <button class="btn btn-secondary" onclick="closeModal()">Close</button>
+            <button class="btn btn-primary" onclick="window.location.href='register-person.html'" style="background:var(--color-warning); color:#000;">Register New Visitor</button>
+          `;
+
+          Db.addLog('warning', `Biometric match warning: Unrecognized face detected. Directing to visitor registration.`);
+        }
+
+        // Display modal
+        document.getElementById('modalTitle').textContent = modalTitleText;
+        document.getElementById('modalBody').innerHTML = modalHtml;
+        document.getElementById('modalFooter').innerHTML = footerHtml;
+        scanModal.classList.add('active');
+
+        updateMetrics();
+      }, 1500);
+    };
+
+    // Helper redirect to print preview page
+    const generatePass = (personId) => {
+      closeModal();
+      window.location.href = `print-preview.html?id=${personId}`;
+    };
+
+    // Initial render
+    updateMetrics();
+  </script>
+</body>
+</html>
+

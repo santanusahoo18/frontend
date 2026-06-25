@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Codes - AI Security Gate Pass</title>
+  <link rel="stylesheet" href="global.css">
+  <style>
+    .admin-layout {
+      display: grid;
+      grid-template-columns: 1fr 1.8fr;
+      gap: 1.5rem;
+      align-items: start;
+    }
+
+    /* Key display panel */
+    .key-gen-card {
+      text-align: center;
+      padding: 2.5rem 1.5rem;
+    }
+
+    .key-display {
+      font-family: var(--font-title);
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: var(--color-secure);
+      text-shadow: 0 0 15px var(--color-secure-glow);
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      padding: 1rem 1.5rem;
+      border-radius: 8px;
+      margin: 1.5rem 0;
+      letter-spacing: 0.05em;
+    }
+
+    .expiry-countdown {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      margin-bottom: 1.5rem;
+    }
+
+    /* Key lists table styles */
+    .table-container {
+      overflow-x: auto;
+    }
+
+    .admin-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+      text-align: left;
+    }
+
+    .admin-table th {
+      background: var(--bg-secondary);
+      padding: 1rem;
+      color: var(--text-secondary);
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .admin-table td {
+      padding: 1rem;
+      border-bottom: 1px solid var(--border-color);
+      color: var(--text-primary);
+    }
+
+    .admin-table tr:hover {
+      background: rgba(15, 23, 42, 0.02);
+    }
+
+    .timer-badge {
+      font-family: var(--font-title);
+      font-weight: 600;
+      color: var(--color-warning);
+    }
+
+    @media (max-width: 1024px) {
+      .admin-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+    <main class="main-content">
+      
+      <div class="content-header">
+        <div class="page-title">
+          <h1>Admin Key Console</h1>
+          <p>Generate timed registration keys to provision new operator terminals</p>
+        </div>
+      </div>
+
+      <div class="admin-layout">
+        <!-- Generate Panel (Left) -->
+        <div class="card key-gen-card">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--color-secure); filter: drop-shadow(0 0 5px var(--color-secure-glow));">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            <path d="M12 15v3"></path>
+          </svg>
+          <h2 style="font-size:1.1rem; font-family:var(--font-title); font-weight:700; margin-top:10px;">Security Key Provisioning</h2>
+          <p style="font-size:0.8rem; color:var(--text-secondary); margin-top:5px; max-width:240px; margin-left:auto; margin-right:auto;">
+            Generate a single-use passcode allowing registration. Keys automatically expire in 5 minutes.
+          </p>
+
+          <div class="key-display" id="activeKeyText">AD-XXXX</div>
+          <div class="expiry-countdown" id="activeKeyTimer">Time remaining: Standby</div>
+
+          <button class="btn btn-primary btn-block" onclick="generateKey()">
+            Generate Key Passcode
+          </button>
+        </div>
+
+        <!-- History Keys Table (Right) -->
+        <div class="card" style="height:100%;">
+          <h2 style="font-size:1.1rem; font-family:var(--font-title); font-weight:700; margin-bottom:1rem;">Access Token Log</h2>
+          
+          <div class="table-container">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Passcode</th>
+                  <th>Status</th>
+                  <th>Operator (Creator)</th>
+                  <th>Expiration / Timer</th>
+                </tr>
+              </thead>
+              <tbody id="codesTableBody">
+                <!-- Loaded dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <script src="global.js"></script>
+  <script>
+    // Security check - requires Admin
+    const currentUser = Auth.requireAdmin();
+
+    const activeKeyText = document.getElementById('activeKeyText');
+    const activeKeyTimer = document.getElementById('activeKeyTimer');
+    const tableBody = document.getElementById('codesTableBody');
+
+    let timerInterval = null;
+
+    // Load active timer for generated code
+    const updateCountdown = (expiresAtStr, callback) => {
+      const expiresAt = new Date(expiresAtStr).getTime();
+      
+      const tick = () => {
+        const now = new Date().getTime();
+        const diff = expiresAt - now;
+
+        if (diff <= 0) {
+          activeKeyTimer.textContent = 'Expired';
+          activeKeyTimer.style.color = 'var(--color-denied)';
+          activeKeyText.style.color = 'var(--text-muted)';
+          activeKeyText.style.textShadow = 'none';
+          
+          clearInterval(timerInterval);
+          // Refresh table data
+          renderCodesTable();
+          if (callback) callback();
+        } else {
+          const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+          const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+          activeKeyTimer.textContent = `Expires in: 0${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+          activeKeyTimer.style.color = 'var(--color-warning)';
+        }
+      };
+
+      tick();
+      clearInterval(timerInterval);
+      timerInterval = setInterval(tick, 1000);
+    };
+
+    // Render historical list
+    const renderCodesTable = () => {
+      const codes = Db.getAdminCodes();
+      tableBody.innerHTML = '';
+      
+      codes.slice().reverse().forEach(c => {
+        const isExpired = new Date() > new Date(c.expiresAt);
+        let finalStatus = c.status;
+        
+        if (c.status === 'active' && isExpired) {
+          finalStatus = 'expired';
+          // Sync database state implicitly
+          c.status = 'expired';
+        }
+
+        let statusClass = 'warning';
+        if (finalStatus === 'used') statusClass = 'secure';
+        if (finalStatus === 'expired') statusClass = 'denied';
+
+        // Calculate countdown values for active keys in table
+        let expiryDisplay = new Date(c.expiresAt).toLocaleTimeString();
+        if (finalStatus === 'active') {
+          const diff = new Date(c.expiresAt).getTime() - new Date().getTime();
+          const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+          const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+          expiryDisplay = `0${minutes}:${seconds < 10 ? '0' : ''}${seconds} left`;
+        }
+
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td style="font-weight:700; font-family:var(--font-title);">${c.code}</td>
+          <td>
+            <span class="status-badge ${statusClass}" style="padding: 2px 8px; font-size: 0.65rem;">
+              ${finalStatus}
+            </span>
+          </td>
+          <td style="color:var(--text-secondary); font-size:0.8rem;">${c.createdBy}</td>
+          <td class="${finalStatus === 'active' ? 'timer-badge' : ''}" style="font-size:0.8rem;">
+            ${finalStatus === 'active' ? expiryDisplay : finalStatus === 'used' ? 'Consumed' : 'Expired'}
+          </td>
+        `;
+        tableBody.appendChild(row);
+      });
+    };
+
+    // Generate action
+    const generateKey = () => {
+      const codeObj = Db.generateAdminCode(currentUser.email);
+      activeKeyText.textContent = codeObj.code;
+      activeKeyText.style.color = 'var(--color-secure)';
+      activeKeyText.style.textShadow = '0 0 15px var(--color-secure-glow)';
+      
+      Toast.show(`Key ${codeObj.code} generated successfully!`, 'secure');
+      
+      updateCountdown(codeObj.expiresAt, () => {
+        // Expired callback
+        Toast.show(`Key ${codeObj.code} has expired.`, 'denied');
+      });
+      
+      renderCodesTable();
+    };
+
+    // Table timer tick refresh for any active keys displayed in table
+    setInterval(() => {
+      const activeRows = Db.getAdminCodes().some(c => c.status === 'active' && new Date() < new Date(c.expiresAt));
+      if (activeRows) {
+        renderCodesTable();
+      }
+    }, 1000);
+
+    renderCodesTable();
+
+    // Clean up timers on close
+    window.addEventListener('beforeunload', () => {
+      clearInterval(timerInterval);
+    });
+  </script>
+</body>
+</html>

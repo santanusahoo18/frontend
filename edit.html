@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Edit Credentials - AI Security Gate Pass</title>
+  <link rel="stylesheet" href="global.css">
+  <style>
+    .split-layout {
+      display: grid;
+      grid-template-columns: 1fr 1.2fr;
+      gap: 1.5rem;
+      align-items: start;
+    }
+
+    .photo-capture-card {
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .capture-box {
+      width: 100%;
+      max-width: 320px;
+      aspect-ratio: 1;
+      background: #1e293b;
+      border: 1px solid var(--border-color);
+      border-radius: var(--border-radius);
+      margin-bottom: 1.25rem;
+      overflow: hidden;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: inset 0 0 10px rgba(15, 23, 42, 0.05);
+    }
+
+    #captureVideo {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+      display: none;
+    }
+
+    #capturedCanvas {
+      display: none;
+    }
+
+    #photoPreview {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .capture-badge {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid var(--border-color);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      font-weight: 600;
+      color: var(--text-secondary);
+      z-index: 10;
+    }
+
+    .capture-controls {
+      display: flex;
+      gap: 8px;
+      width: 100%;
+      justify-content: center;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    .form-span-2 {
+      grid-column: span 2;
+    }
+
+    @media (max-width: 768px) {
+      .split-layout {
+        grid-template-columns: 1fr;
+      }
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+      .form-span-2 {
+        grid-column: span 1;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+    <main class="main-content">
+      
+      <div class="content-header">
+        <div class="page-title">
+          <h1>Modify Biometric Credentials</h1>
+          <p>Update credentials, clearances, and biometrics for existing entries</p>
+        </div>
+      </div>
+
+      <div class="split-layout">
+        <!-- Photo Snapshot Capture (Left) -->
+        <div class="card photo-capture-card">
+          <h2 style="font-size:1.1rem; font-family:var(--font-title); font-weight:700; margin-bottom:1rem; align-self:flex-start;">Operator Snapshot Capture</h2>
+          
+          <div class="capture-box">
+            <span class="capture-badge" id="captureState">Current Photo</span>
+            
+            <video id="captureVideo" autoplay playsinline muted></video>
+            <img id="photoPreview" src="" alt="Snapshot Preview">
+            <canvas id="capturedCanvas"></canvas>
+          </div>
+
+          <div class="capture-controls">
+            <button class="btn btn-secondary" id="snapBtn" onclick="takeSnapshot()" style="display:none;">
+              Snap Photo
+            </button>
+            <button class="btn btn-secondary" id="cameraBtn" onclick="activateCamera()">
+              Enable Webcam
+            </button>
+            <button class="btn btn-secondary" id="resetBtn" onclick="resetCamera()" style="display:none;">
+              Cancel
+            </button>
+          </div>
+        </div>
+
+        <!-- Registry Forms Data (Right) -->
+        <div class="card">
+          <h2 style="font-size:1.1rem; font-family:var(--font-title); font-weight:700; margin-bottom:1rem;">Credentials Registry Editor</h2>
+          
+          <form id="personForm">
+            <div class="form-grid">
+              
+              <div class="form-group form-span-2">
+                <label class="form-label" for="fullName">Full Name</label>
+                <input type="text" id="fullName" class="form-control" required>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="category">Category</label>
+                <select id="category" class="form-control" required>
+                  <option value="Visitor">Visitor</option>
+                  <option value="Employee">Employee</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="empId">System ID Code</label>
+                <input type="text" id="empId" class="form-control" readonly>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="adharNo">Aadhaar Card Number (12 Digit)</label>
+                <input type="text" id="adharNo" class="form-control" required pattern="[0-9]{12}">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="phone">Contact Mobile</label>
+                <input type="tel" id="phone" class="form-control" required pattern="[0-9]{10}">
+              </div>
+
+              <div class="form-group form-span-2">
+                <label class="form-label" for="purpose">Purpose / Department</label>
+                <input type="text" id="purpose" class="form-control" required>
+              </div>
+
+              <div class="form-group form-span-2">
+                <label class="form-label" for="address">Residential Address</label>
+                <input type="text" id="address" class="form-control" required>
+              </div>
+
+            </div>
+
+            <div style="margin-top: 1.5rem; display:flex; justify-content:flex-end; gap:10px;">
+              <button type="button" class="btn btn-secondary" onclick="window.location.href='print-list.html'">Cancel</button>
+              <button type="submit" class="btn btn-primary">Save Changes</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <script src="global.js"></script>
+  <script>
+    Auth.requireAuth();
+
+    // Query Parameter parsing
+    const urlParams = new URLSearchParams(window.location.search);
+    const personId = urlParams.get('id');
+
+    if (!personId) {
+      Toast.show('Error: No ID supplied. Redirecting...', 'denied');
+      setTimeout(() => window.location.href = 'print-list.html', 1000);
+    }
+
+    const person = Db.getPerson(personId);
+    if (!person) {
+      Toast.show('Error: Record not found. Redirecting...', 'denied');
+      setTimeout(() => window.location.href = 'print-list.html', 1000);
+    }
+
+    // Elements
+    const video = document.getElementById('captureVideo');
+    const photoPreview = document.getElementById('photoPreview');
+    const canvas = document.getElementById('capturedCanvas');
+    const snapBtn = document.getElementById('snapBtn');
+    const cameraBtn = document.getElementById('cameraBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const captureState = document.getElementById('captureState');
+    const form = document.getElementById('personForm');
+
+    let streamRef = null;
+    let base64PhotoData = '';
+
+    // Load initial form values
+    const loadFields = () => {
+      document.getElementById('fullName').value = person.name;
+      document.getElementById('category').value = person.category;
+      document.getElementById('empId').value = person.empId;
+      document.getElementById('adharNo').value = person.adhar;
+      document.getElementById('phone').value = person.phone;
+      document.getElementById('purpose').value = person.purpose;
+      document.getElementById('address').value = person.address;
+      
+      photoPreview.src = person.photo;
+      base64PhotoData = person.photo;
+    };
+
+    // Activate Camera
+    const activateCamera = () => {
+      navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 320 } })
+        .then(stream => {
+          streamRef = stream;
+          video.srcObject = stream;
+          
+          photoPreview.style.display = 'none';
+          video.style.display = 'block';
+          
+          cameraBtn.style.display = 'none';
+          snapBtn.style.display = 'inline-flex';
+          resetBtn.style.display = 'inline-flex';
+          
+          captureState.textContent = "Live Camera";
+        })
+        .catch(err => {
+          console.warn("Camera could not be activated", err);
+          Toast.show('Camera hardware is currently unavailable.', 'warning');
+        });
+    };
+
+    // Snap photo
+    const takeSnapshot = () => {
+      if (!streamRef) return;
+      canvas.width = 320;
+      canvas.height = 320;
+      
+      const ctx = canvas.getContext('2d');
+      ctx.translate(320, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(video, 0, 0, 320, 320);
+      
+      base64PhotoData = canvas.toDataURL('image/jpeg');
+      
+      video.style.display = 'none';
+      photoPreview.src = base64PhotoData;
+      photoPreview.style.display = 'block';
+      
+      snapBtn.style.display = 'none';
+      captureState.textContent = "New Snapshot Captured";
+      captureState.style.color = "var(--color-secure)";
+    };
+
+    const resetCamera = () => {
+      if (streamRef) {
+        streamRef.getTracks().forEach(t => t.stop());
+      }
+      video.style.display = 'none';
+      photoPreview.style.display = 'block';
+      photoPreview.src = person.photo;
+      base64PhotoData = person.photo;
+
+      cameraBtn.style.display = 'inline-flex';
+      snapBtn.style.display = 'none';
+      resetBtn.style.display = 'none';
+      captureState.textContent = "Current Photo";
+      captureState.style.color = "";
+    };
+
+    // Form Update Handler
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+
+      const adhar = document.getElementById('adharNo').value;
+      if (Db.isBlacklisted(adhar)) {
+        Toast.show('Cannot update credentials: Aadhaar is blacklisted.', 'denied');
+        return;
+      }
+
+      const updatedObj = {
+        id: person.id,
+        name: document.getElementById('fullName').value.trim(),
+        adhar: adhar,
+        address: document.getElementById('address').value.trim(),
+        phone: document.getElementById('phone').value.trim(),
+        category: document.getElementById('category').value,
+        purpose: document.getElementById('purpose').value.trim(),
+        photo: base64PhotoData
+      };
+
+      Db.updatePerson(updatedObj);
+      Toast.show('Registry credentials updated!', 'secure');
+
+      setTimeout(() => {
+        if (streamRef) {
+          streamRef.getTracks().forEach(track => track.stop());
+        }
+        window.location.href = 'print-list.html';
+      }, 1000);
+    });
+
+    loadFields();
+
+    window.addEventListener('beforeunload', () => {
+      if (streamRef) {
+        streamRef.getTracks().forEach(track => track.stop());
+      }
+    });
+  </script>
+</body>
+</html>

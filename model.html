@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Biometric AI Scanner - AI Security Gate Pass</title>
+  <link rel="stylesheet" href="global.css">
+  <style>
+    .scanner-layout {
+      display: grid;
+      grid-template-columns: 1.8fr 1fr;
+      gap: 1.5rem;
+      align-items: start;
+    }
+
+    .feed-container {
+      position: relative;
+      background: #1e293b;
+      border: 1px solid var(--border-color);
+      border-radius: var(--border-radius);
+      overflow: hidden;
+      aspect-ratio: 16/9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
+    }
+
+    #fallbackPrompt {
+      color: #ffffff !important;
+    }
+
+    #fallbackPrompt svg {
+      color: #ffffff !important;
+    }
+
+    #fallbackPrompt p {
+      color: #ffffff !important;
+    }
+
+    #fallbackPrompt small {
+      color: #bfdbfe !important;
+    }
+
+    #cameraVideo {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+    }
+
+    #overlayCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 5;
+      transform: scaleX(-1);
+    }
+
+    .feed-controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 1rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      padding: 0.75rem 1.25rem;
+      border-radius: var(--border-radius);
+    }
+
+    .status-panel-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* Telemetry grid on right side */
+    .telemetry-card {
+      height: 100%;
+    }
+
+    .telemetry-header {
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 0.75rem;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .telemetry-header h2 {
+      font-size: 1rem;
+      font-family: var(--font-title);
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.5rem 0;
+      border-bottom: 1px dashed var(--border-color);
+      font-size: 0.85rem;
+    }
+
+    .stat-row:last-child {
+      border-bottom: none;
+    }
+
+    .stat-label {
+      color: var(--text-secondary);
+    }
+
+    .stat-value {
+      font-family: var(--font-title);
+      font-weight: 600;
+      color: var(--color-secure);
+    }
+
+    .matches-feed {
+      margin-top: 1.5rem;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1rem;
+    }
+
+    .matches-feed h3 {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-bottom: 0.75rem;
+    }
+
+    .match-profile {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0.75rem;
+      background: var(--bg-primary);
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+      transition: all 0.3s;
+    }
+
+    .match-profile.secure {
+      border-color: rgba(16, 185, 129, 0.4);
+      background: rgba(16, 185, 129, 0.03);
+    }
+
+    .match-profile.denied {
+      border-color: rgba(239, 68, 68, 0.4);
+      background: rgba(239, 68, 68, 0.03);
+    }
+
+    .match-avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: 6px;
+      object-fit: cover;
+      background: var(--bg-tertiary);
+    }
+
+    .match-details h4 {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .match-details p {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    /* Live scanline */
+    .telemetry-graph {
+      height: 80px;
+      background: rgba(2, 6, 23, 0.5);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      margin-top: 1rem;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .grid-lines {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: 
+        linear-gradient(rgba(16, 185, 129, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(16, 185, 129, 0.05) 1px, transparent 1px);
+      background-size: 10px 10px;
+    }
+
+    /* Simulation scanning boxes animation */
+    .biometric-box {
+      border: 2px solid var(--color-secure);
+      position: absolute;
+      box-shadow: 0 0 10px var(--color-secure-glow);
+    }
+
+    @media (max-width: 1024px) {
+      .scanner-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+    <main class="main-content">
+      
+      <div class="content-header">
+        <div class="page-title">
+          <h1>AI Biometric Telemetry</h1>
+          <p>Real-time neural face detection and visitor identity verification</p>
+        </div>
+        <div style="display:flex; gap:10px;">
+          <button class="btn btn-secondary" onclick="window.location.href='dashboard.html'">
+            Return to Dashboard
+          </button>
+        </div>
+      </div>
+
+      <div class="scanner-layout">
+        <!-- Telemetry Feed (Webcam Video + Landmarks Canvas) -->
+        <div>
+          <div class="feed-container hud-container">
+            <div class="hud-corner top-left"></div>
+            <div class="hud-corner top-right"></div>
+            <div class="hud-corner bottom-left"></div>
+            <div class="hud-corner bottom-right"></div>
+            <div class="scan-line" id="camScanLine"></div>
+            <video id="cameraVideo" autoplay playsinline muted></video>
+            <canvas id="overlayCanvas"></canvas>
+            
+            <div id="fallbackPrompt" style="position:absolute; text-align:center; color:var(--text-muted); z-index:2;">
+              <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--text-muted); margin-bottom:1rem;">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M8 14s1.5 2 4 2 4-2 4-2"></path>
+                <line x1="9" y1="9" x2="9.01" y2="9"></line>
+                <line x1="15" y1="9" x2="15.01" y2="9"></line>
+              </svg>
+              <p>Camera feed standby...</p>
+              <small>Approve webcam permissions to initialize tracking</small>
+            </div>
+          </div>
+
+          <div class="feed-controls">
+            <div class="status-panel-indicator">
+              <span style="width:10px; height:10px; border-radius:50%; background-color: var(--color-secure); box-shadow: 0 0 8px var(--color-secure);"></span>
+              <span id="scanStatus">Detector active</span>
+            </div>
+            
+            <div style="display: flex; gap: 8px;">
+              <button class="btn btn-secondary" id="actionBtn" onclick="toggleScanner()" style="padding: 0.5rem 1rem; font-size:0.85rem;">
+                Pause Feed
+              </button>
+              <button class="btn btn-primary" id="scanBtn" onclick="triggerMockFaceScan()" style="padding: 0.5rem 1rem; font-size:0.85rem;">
+                Scan Face
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Telemetry Analytics (Right Panel) -->
+        <div class="card telemetry-card card-premium">
+          <div class="telemetry-header" style="display: none;">
+            <h2>Telemetry Reports</h2>
+            <div class="status-badge secure" style="padding: 2px 6px; font-size: 0.65rem;">Model v1.0 (Tiny)</div>
+          </div>
+
+          <div class="stat-row" style="display: none;">
+            <span class="stat-label">Neural Model</span>
+            <span class="stat-value" style="color:var(--color-accent)">TinyYoloFace / face-api.js</span>
+          </div>
+          <div class="stat-row" style="display: none;">
+            <span class="stat-label">Inference Speed</span>
+            <span class="stat-value" id="inferenceTime">16 ms</span>
+          </div>
+          <div class="stat-row" style="display: none;">
+            <span class="stat-label">Detector Framerate</span>
+            <span class="stat-value" id="fpsCounter">60 FPS</span>
+          </div>
+          <div class="stat-row" style="display: none;">
+            <span class="stat-label">Landmarks Tracked</span>
+            <span class="stat-value">68 Points</span>
+          </div>
+          <div class="stat-row" style="display: none;">
+            <span class="stat-label">Model Weights</span>
+            <span class="stat-value" style="color:var(--color-secure);">100% OK</span>
+          </div>
+
+          <h3 style="font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-top: 1.25rem; margin-bottom: 0.5rem; display: none;">Diagnostic Stream</h3>
+          <div class="terminal-console" id="diagConsole" style="height: 130px; font-size: 0.75rem; padding: 0.5rem 0.75rem; margin-bottom: 1.25rem; line-height: 1.4; display: none;">
+            <div style="color: var(--text-muted);">[SYS] Initializing face-api.js neural weights...</div>
+            <div style="color: var(--color-secure);">[SYS] Detector module initialized successfully.</div>
+          </div>
+
+          <!-- Matched Identity Card -->
+          <div class="matches-feed">
+            <h3>Active Detection Match</h3>
+            <div id="matchTarget">
+              <div class="match-profile" style="border-style:dashed; background:transparent; justify-content:center; color:var(--text-muted); font-size:0.8rem; height:80px;">
+                Searching for facial coordinates...
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+    </main>
+  </div>
+
+  <script src="global.js"></script>
+  <script>
+    Auth.requireAuth();
+
+    const video = document.getElementById('cameraVideo');
+    const canvas = document.getElementById('overlayCanvas');
+    const ctx = canvas.getContext('2d');
+    const fallbackPrompt = document.getElementById('fallbackPrompt');
+    const scanStatus = document.getElementById('scanStatus');
+    const actionBtn = document.getElementById('actionBtn');
+    
+    const inferenceTime = document.getElementById('inferenceTime');
+    const fpsCounter = document.getElementById('fpsCounter');
+    const matchTarget = document.getElementById('matchTarget');
+
+    let feedActive = true;
+    let webcamStream = null;
+    let animFrameId = null;
+
+    const diagConsole = document.getElementById('diagConsole');
+
+    const logDiag = (msg, level = 'sys') => {
+      const div = document.createElement('div');
+      const color = level === 'secure' ? 'var(--color-secure)' : level === 'denied' ? 'var(--color-denied)' : level === 'warning' ? 'var(--color-warning)' : 'var(--text-muted)';
+      const time = new Date().toLocaleTimeString('en-US', { hour12: false });
+      div.style.color = color;
+      div.textContent = `[${time}] [${level.toUpperCase()}] ${msg}`;
+      diagConsole.appendChild(div);
+      diagConsole.scrollTop = diagConsole.scrollHeight;
+    };
+
+    // Access Webcam
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then(stream => {
+        webcamStream = stream;
+        video.srcObject = stream;
+        fallbackPrompt.style.display = 'none';
+        logDiag("Webcam video stream locked [OK]", "sys");
+        
+        // Resize canvas to match video layout
+        video.onloadedmetadata = () => {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          startFaceLandmarkSimulation();
+        };
+      })
+      .catch(err => {
+        console.error("Camera access failed", err);
+        fallbackPrompt.innerHTML = `
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--color-denied); margin-bottom:10px;">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+          </svg>
+          <p style="color:var(--color-denied);">Camera hardware unavailable</p>
+          <small>Interactive simulations remain fully active.</small>
+        `;
+        logDiag("Webcam offline, initializing mock telemetry framework", "warning");
+        canvas.width = 640;
+        canvas.height = 360;
+        startFaceLandmarkSimulation();
+      });
+
+    // Face coordinates tracking coordinates
+    let faceX = 320, faceY = 180;
+    let faceWidth = 140, faceHeight = 140;
+    let dx = 2, dy = 1.5;
+    let isTrackingFace = true;
+
+    // Start drawing landmarks
+    const startFaceLandmarkSimulation = () => {
+      logDiag("Loading neural landmark tracking weights...", "sys");
+      setTimeout(() => logDiag("Loaded 68-landmarks mesh mapping array [OK]", "sys"), 600);
+      
+      const draw = () => {
+        if (!feedActive) return;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (isTrackingFace) {
+          // Bounce tracking box around screen to simulate face coordinates walking
+          faceX += dx;
+          faceY += dy;
+
+          if (faceX - faceWidth/2 < 20 || faceX + faceWidth/2 > canvas.width - 20) dx = -dx;
+          if (faceY - faceHeight/2 < 20 || faceY + faceHeight/2 > canvas.height - 20) dy = -dy;
+
+          // Draw Bounding box
+          ctx.strokeStyle = 'var(--color-secure)';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(faceX - faceWidth/2, faceY - faceHeight/2, faceWidth, faceHeight);
+          
+          // Draw neon corners
+          const len = 15;
+          ctx.strokeStyle = '#6366f1';
+          ctx.lineWidth = 4;
+          
+          // top-left
+          ctx.beginPath();
+          ctx.moveTo(faceX - faceWidth/2 - 1, faceY - faceHeight/2 + len);
+          ctx.lineTo(faceX - faceWidth/2 - 1, faceY - faceHeight/2 - 1);
+          ctx.lineTo(faceX - faceWidth/2 + len, faceY - faceHeight/2 - 1);
+          ctx.stroke();
+
+          // top-right
+          ctx.beginPath();
+          ctx.moveTo(faceX + faceWidth/2 + 1, faceY - faceHeight/2 + len);
+          ctx.lineTo(faceX + faceWidth/2 + 1, faceY - faceHeight/2 - 1);
+          ctx.lineTo(faceX + faceWidth/2 - len, faceY - faceHeight/2 - 1);
+          ctx.stroke();
+
+          // bottom-left
+          ctx.beginPath();
+          ctx.moveTo(faceX - faceWidth/2 - 1, faceY + faceHeight/2 - len);
+          ctx.lineTo(faceX - faceWidth/2 - 1, faceY + faceHeight/2 + 1);
+          ctx.lineTo(faceX - faceWidth/2 + len, faceY + faceHeight/2 + 1);
+          ctx.stroke();
+
+          // bottom-right
+          ctx.beginPath();
+          ctx.moveTo(faceX + faceWidth/2 + 1, faceY + faceHeight/2 - len);
+          ctx.lineTo(faceX + faceWidth/2 + 1, faceY + faceHeight/2 + 1);
+          ctx.lineTo(faceX + faceWidth/2 - len, faceY + faceHeight/2 + 1);
+          ctx.stroke();
+
+          // Draw mock facial landmarks (dots)
+          ctx.fillStyle = 'rgba(16, 185, 129, 0.7)';
+          // Eyes
+          ctx.beginPath();
+          ctx.arc(faceX - 25, faceY - 15, 3, 0, Math.PI * 2);
+          ctx.arc(faceX + 25, faceY - 15, 3, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Nose bridge
+          ctx.strokeStyle = 'rgba(16, 185, 129, 0.5)';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(faceX, faceY - 15);
+          ctx.lineTo(faceX, faceY + 10);
+          ctx.lineTo(faceX - 10, faceY + 15);
+          ctx.moveTo(faceX, faceY + 10);
+          ctx.lineTo(faceX + 10, faceY + 15);
+          ctx.stroke();
+
+          // Mouth
+          ctx.beginPath();
+          ctx.arc(faceX, faceY + 30, 15, 0, Math.PI);
+          ctx.stroke();
+
+          // Face border points
+          for(let i=0; i<16; i++) {
+            const angle = Math.PI + (i / 15) * Math.PI;
+            const px = faceX + Math.cos(angle) * (faceWidth/2 - 5);
+            const py = faceY + Math.sin(angle) * (faceHeight/2 + 10) * 0.8;
+            ctx.beginPath();
+            ctx.arc(px, py, 2, 0, Math.PI*2);
+            ctx.fillStyle = '#6366f1';
+            ctx.fill();
+          }
+
+          // Labels
+          ctx.fillStyle = 'var(--color-secure)';
+          ctx.font = '10px monospace';
+          ctx.fillText(`FACE LOCK [CONF: 99.1%]`, faceX - faceWidth/2, faceY - faceHeight/2 - 20);
+          ctx.fillText(`X:${Math.round(faceX)} Y:${Math.round(faceY)}`, faceX - faceWidth/2, faceY - faceHeight/2 - 8);
+        }
+
+        // Live telemetry updates
+        inferenceTime.textContent = Math.round(12 + Math.random() * 6) + ' ms';
+        fpsCounter.textContent = Math.round(58 + Math.random() * 4) + ' FPS';
+
+        animFrameId = requestAnimationFrame(draw);
+      };
+      animFrameId = requestAnimationFrame(draw);
+    };
+
+    const toggleScanner = () => {
+      feedActive = !feedActive;
+      if (feedActive) {
+        actionBtn.textContent = 'Pause Feed';
+        scanStatus.textContent = 'Detector active';
+        logDiag("Resuming live video biometric telemetry streams", "sys");
+        startFaceLandmarkSimulation();
+      } else {
+        actionBtn.textContent = 'Resume Feed';
+        scanStatus.textContent = 'Detector paused';
+        logDiag("Biometric scanner feed paused by operator", "warning");
+        cancelAnimationFrame(animFrameId);
+      }
+    };
+
+    // Manual Mock triggers matching logic
+    const triggerMockFaceScan = () => {
+      if (!feedActive) toggleScanner();
+
+      logDiag("Acquiring biometric facial signature canvas snapshot...", "sys");
+      AudioFeedback.playProcessing();
+
+      const blacklist = Db.getBlacklist();
+      const people = Db.getPeople();
+
+      setTimeout(() => {
+        logDiag("Extracting 128-dimensional Euclidean face vector...", "sys");
+        
+        setTimeout(() => {
+          logDiag("Querying biometric identity directory templates...", "sys");
+          
+          setTimeout(() => {
+            const rand = Math.random();
+            if (rand < 0.50 && people.length > 0) {
+              // MATCH EMPLOYEE/VISITOR
+              const target = people[Math.floor(Math.random() * people.length)];
+              
+              AudioFeedback.playSuccess();
+              logDiag(`Biometric match CLEARED: ${target.name} [ID: ${target.empId}]`, "secure");
+              
+              matchTarget.innerHTML = `
+                <div class="match-profile secure">
+                  <img src="${target.photo}" class="match-avatar" alt="Avatar">
+                  <div class="match-details">
+                    <h4>${target.name}</h4>
+                    <p>${target.category} • ID: ${target.empId}</p>
+                    <span class="status-badge secure" style="padding:0 5px; font-size:0.6rem;">Match Cleared</span>
+                  </div>
+                  <button class="btn btn-primary" onclick="window.location.href='print-preview.html?id=${target.id}'" style="padding:3px 8px; font-size:0.7rem; margin-left:auto;">
+                    Pass
+                  </button>
+                </div>
+              `;
+              Toast.show(`Biometric Match: ${target.name} recognized.`, 'secure');
+              Db.addLog('secure', `Biometric clear: ${target.name} (${target.category}) matched. Pass issuing cleared.`);
+
+            } else if (rand < 0.75 && blacklist.length > 0) {
+              // MATCH BLACKLIST
+              const target = blacklist[Math.floor(Math.random() * blacklist.length)];
+              
+              AudioFeedback.playWarning();
+              logDiag(`SECURITY THREAT ALERT: Blacklisted record found for Aadhaar ${target.adhar}!`, "denied");
+              
+              matchTarget.innerHTML = `
+                <div class="match-profile denied">
+                  <img src="${target.photo}" class="match-avatar" alt="Avatar">
+                  <div class="match-details">
+                    <h4 style="color:var(--color-denied);">${target.name}</h4>
+                    <p style="color:var(--color-denied); opacity:0.8;">BLACKLISTED</p>
+                    <p style="font-size:0.65rem; color:var(--text-muted); max-width:180px;">${target.reason}</p>
+                  </div>
+                </div>
+              `;
+              Toast.show(`ALERT: Blacklisted Face Detected: ${target.name}!`, 'denied');
+              Db.addLog('denied', `Biometric block: Blacklisted person ${target.name} attempted entry. Reason: ${target.reason}.`);
+
+            } else {
+              // NO MATCH / UNKNOWN
+              AudioFeedback.playWarning();
+              logDiag("Euclidean similarity distance above clearance threshold (0.60)", "warning");
+              logDiag("Face signature unrecognized in template directory", "warning");
+              
+              matchTarget.innerHTML = `
+                <div class="match-profile warning">
+                  <div class="match-avatar" style="display:flex; align-items:center; justify-content:center; background:var(--bg-tertiary); color:var(--color-warning);">?</div>
+                  <div class="match-details">
+                    <h4>Unrecognized Face</h4>
+                    <p>No telemetry matches found.</p>
+                  </div>
+                  <button class="btn btn-secondary" onclick="window.location.href='register-person.html'" style="padding:3px 8px; font-size:0.7rem; margin-left:auto; border-color:var(--color-warning); color:var(--color-warning);">
+                    Register
+                  </button>
+                </div>
+              `;
+              Toast.show(`Unrecognized face. Register new visitor.`, 'warning');
+              Db.addLog('warning', `Biometric match warning: Unrecognized face detected. Directing to visitor registration.`);
+            }
+          }, 400);
+        }, 400);
+      }, 600);
+    };
+
+    // Clean up animation on navigate
+    window.addEventListener('beforeunload', () => {
+      if (webcamStream) {
+        webcamStream.getTracks().forEach(t => t.stop());
+      }
+      cancelAnimationFrame(animFrameId);
+    });
+  </script>
+</body>
+</html>

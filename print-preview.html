@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Print Preview - AI Security Gate Pass</title>
+  <link rel="stylesheet" href="global.css">
+  <style>
+    .preview-layout {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem 0;
+    }
+
+    /* Physical Gate Pass Card Layout */
+    .gate-pass-badge {
+      width: 420px;
+      background: #ffffff;
+      color: #000000;
+      border: 3px solid #1e293b;
+      border-radius: 16px;
+      padding: 1.5rem;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+      font-family: 'Inter', sans-serif;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .gate-pass-badge::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) rotate(-15deg);
+      width: 280px;
+      height: 280px;
+      background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' opacity='0.03' fill='%23000000'><path d='M50 15L15 35v30l35 20 35-20V35L50 15zm0 10l25 14v22L50 75 25 61V39l25-14z'/></svg>") no-repeat center;
+      background-size: contain;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Set z-index of content above the watermark background */
+    .pass-header, .pass-body, .validity-container, .pass-footer {
+      position: relative;
+      z-index: 1;
+    }
+
+    .pass-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .pass-brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .pass-brand h3 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 700;
+      font-size: 1.1rem;
+      letter-spacing: -0.02em;
+    }
+
+    .pass-category-badge {
+      padding: 4px 12px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-radius: 4px;
+      background: #1e293b;
+      color: #ffffff;
+    }
+
+    .pass-body {
+      display: flex;
+      gap: 1.25rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .pass-photo-box {
+      width: 110px;
+      height: 110px;
+      border-radius: 8px;
+      border: 2px solid #cbd5e1;
+      object-fit: cover;
+      flex-shrink: 0;
+      background: #f8fafc;
+    }
+
+    .pass-fields {
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 0.85rem;
+    }
+
+    .pass-field {
+      line-height: 1.4;
+    }
+
+    .pass-field strong {
+      color: #475569;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      display: block;
+    }
+
+    .pass-field span {
+      color: #0f172a;
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+
+    /* Timing Highlight Box */
+    .validity-container {
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 0.75rem;
+      text-align: center;
+      margin-bottom: 1.25rem;
+    }
+
+    .validity-title {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #64748b;
+    }
+
+    .validity-time {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #0f172a;
+      margin-top: 2px;
+    }
+
+    /* Barcode/QR visualization */
+    .pass-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 1rem;
+      margin-top: 0.5rem;
+    }
+
+    .pass-signatures {
+      display: flex;
+      flex-direction: column;
+      gap: 25px;
+      font-size: 0.7rem;
+      color: #64748b;
+    }
+
+    .signature-line {
+      border-top: 1px solid #94a3b8;
+      width: 120px;
+      padding-top: 4px;
+      text-align: center;
+    }
+
+    .pass-barcode {
+      width: 140px;
+      height: 48px;
+      background-image: 
+        repeating-linear-gradient(90deg, 
+          #000 0px, #000 2px, 
+          transparent 2px, transparent 5px,
+          #000 5px, #000 6px,
+          transparent 6px, transparent 10px,
+          #000 10px, #000 13px,
+          transparent 13px, transparent 15px
+        );
+      opacity: 0.85;
+    }
+
+    /* Command buttons block */
+    .print-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 2rem;
+      z-index: 100;
+    }
+
+    /* PRINT STYLES - HIDE EVERYTHING EXCEPT THE BADGE */
+    @media print {
+      body {
+        background: #ffffff !important;
+        background-image: none !important;
+        color: #000000 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+
+      .app-container {
+        display: block !important;
+      }
+
+      .sidebar, .print-actions, .content-header, .page-title {
+        display: none !important;
+      }
+
+      .main-content {
+        margin-left: 0 !important;
+        padding: 0 !important;
+      }
+
+      .gate-pass-badge {
+        box-shadow: none !important;
+        border: 2px solid #000000 !important;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%) scale(1.2);
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+    <main class="main-content">
+      
+      <div class="content-header">
+        <div class="page-title">
+          <h1>Gate Pass Dispatch</h1>
+          <p>Verify details on card layout and execute print spooler commands</p>
+        </div>
+      </div>
+
+      <div class="preview-layout">
+        <!-- Physical Gate Pass Card Badge -->
+        <div class="gate-pass-badge" id="printablePass">
+          
+          <div class="pass-header">
+            <div class="pass-brand">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="2">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+              </svg>
+              <h3>SECUREPASS AI</h3>
+            </div>
+            <div class="pass-category-badge" id="badgeCategory">VISITOR</div>
+          </div>
+
+          <div class="pass-body">
+            <!-- Scanned Photo -->
+            <img src="" class="pass-photo-box" id="badgePhoto" alt="Visitor Snapshot">
+            
+            <!-- Credentials Fields -->
+            <div class="pass-fields">
+              <div class="pass-field">
+                <strong>Name</strong>
+                <span id="badgeName">-</span>
+              </div>
+              <div class="pass-field">
+                <strong>Aadhaar Number</strong>
+                <span id="badgeAdhar">-</span>
+              </div>
+              <div class="pass-field">
+                <strong>System ID Code</strong>
+                <span id="badgeId" style="font-family: 'Space Grotesk', sans-serif;">-</span>
+              </div>
+              <div class="pass-field" id="purposeRow">
+                <strong>Purpose of Visit</strong>
+                <span id="badgePurpose">-</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Timed Validity Panel -->
+          <div class="validity-container">
+            <div class="validity-title">Biometric Clearance Timings</div>
+            <div class="validity-time">Valid 9:00 AM – 5:00 PM</div>
+            <div style="font-size:0.65rem; color:#64748b; margin-top:4px;" id="badgeIssuedDate">Issued: -</div>
+          </div>
+
+          <div class="pass-footer">
+            <div class="pass-signatures">
+              <div class="signature-line" style="margin-top:20px;">Visitor Sign</div>
+              <div class="signature-line">Officer Sign</div>
+            </div>
+            <!-- Barcode visualization (Dynamic canvas barcode) -->
+            <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
+              <canvas id="barcodeCanvas" width="140" height="42" style="display: block; opacity: 0.85;"></canvas>
+              <span style="font-family: monospace; font-size:0.6rem; color:#64748b;" id="badgeBarcodeText">VIS-8812</span>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Controls panel (Hidden in printer output) -->
+        <div class="print-actions">
+          <button class="btn btn-secondary" onclick="window.history.back()">
+            Back to Registry
+          </button>
+          <button class="btn btn-primary" onclick="printPass()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="6 9 6 2 18 2 18 9"></polyline>
+              <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+              <rect x="6" y="14" width="12" height="8"></rect>
+            </svg>
+            <span>Print Pass / PDF</span>
+          </button>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <script src="global.js"></script>
+  <script>
+    Auth.requireAuth();
+
+    // Query parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const personId = urlParams.get('id');
+
+    if (!personId) {
+      Toast.show('Error: No record target specified.', 'denied');
+      setTimeout(() => window.location.href = 'print-list.html', 1000);
+    }
+
+    const person = Db.getPerson(personId);
+    if (!person) {
+      Toast.show('Error: Target record not found.', 'denied');
+      setTimeout(() => window.location.href = 'print-list.html', 1000);
+    }
+
+    // Populate Pass Card details
+    const populatePassCard = () => {
+      document.getElementById('badgeName').textContent = person.name;
+      document.getElementById('badgeAdhar').textContent = person.adhar.replace(/(.{4})/g, '$1 ');
+      document.getElementById('badgeId').textContent = person.empId;
+      document.getElementById('badgePhoto').src = person.photo;
+      document.getElementById('badgeCategory').textContent = person.category;
+      
+      const badgeCategoryEl = document.getElementById('badgeCategory');
+      if (person.category === 'Employee') {
+        badgeCategoryEl.style.background = '#10b981';
+        badgeCategoryEl.style.color = '#064e3b';
+      }
+
+      document.getElementById('badgePurpose').textContent = person.purpose;
+      document.getElementById('badgeBarcodeText').textContent = person.empId;
+
+      // Draw dynamic barcode canvas
+      const barcodeCanvas = document.getElementById('barcodeCanvas');
+      if (barcodeCanvas) {
+        const barCtx = barcodeCanvas.getContext('2d');
+        barCtx.clearRect(0, 0, barcodeCanvas.width, barcodeCanvas.height);
+        barCtx.fillStyle = '#000000';
+        
+        let seed = 0;
+        for (let i = 0; i < person.empId.length; i++) {
+          seed += person.empId.charCodeAt(i) * (i + 1);
+        }
+        
+        const random = () => {
+          const x = Math.sin(seed++) * 10000;
+          return x - Math.floor(x);
+        };
+        
+        let currentX = 8;
+        const barHeight = barcodeCanvas.height - 4;
+        
+        while (currentX < barcodeCanvas.width - 8) {
+          const width = random() > 0.52 ? 2 : 1;
+          const spacing = Math.floor(random() * 3) + 1;
+          barCtx.fillRect(currentX, 2, width, barHeight);
+          currentX += width + spacing;
+        }
+      }
+
+      const dateObj = new Date();
+      const dateStr = dateObj.toLocaleDateString('en-US', {
+        year: 'numeric', month: 'short', day: 'numeric'
+      });
+      document.getElementById('badgeIssuedDate').textContent = `Issued: ${dateStr} at ${dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+    };
+
+    const printPass = () => {
+      window.print();
+    };
+
+    populatePassCard();
+  </script>
+</body>
+</html>

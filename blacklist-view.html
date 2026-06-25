@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>View Blacklist - AI Security Gate Pass</title>
+  <link rel="stylesheet" href="global.css">
+  <style>
+    .blacklist-table-card {
+      overflow: hidden;
+    }
+
+    .table-container {
+      overflow-x: auto;
+    }
+
+    .blacklist-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+      text-align: left;
+    }
+
+    .blacklist-table th {
+      background: var(--bg-secondary);
+      padding: 1rem;
+      color: var(--text-secondary);
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .blacklist-table td {
+      padding: 1rem;
+      border-bottom: 1px solid var(--border-color);
+      vertical-align: middle;
+    }
+
+    .blacklist-table tr:hover {
+      background: rgba(15, 23, 42, 0.02);
+    }
+
+    .blacklist-photo {
+      width: 44px;
+      height: 44px;
+      border-radius: 6px;
+      object-fit: cover;
+      border: 1px solid var(--color-denied);
+      box-shadow: 0 0 8px rgba(239, 68, 68, 0.2);
+      background: var(--bg-tertiary);
+    }
+
+    .reason-text {
+      color: var(--color-denied);
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
+
+    .empty-blacklist {
+      text-align: center;
+      padding: 4rem 2rem;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+    <main class="main-content">
+      
+      <div class="content-header">
+        <div class="page-title">
+          <h1>Blacklist Threat Database</h1>
+          <p>Personnel with restricted clearance and denied perimeter access rights</p>
+        </div>
+      </div>
+
+      <!-- Blacklisted Registry Card -->
+      <div class="card blacklist-table-card">
+        <div class="table-container">
+          <table class="blacklist-table">
+            <thead>
+              <tr>
+                <th>Biometrics</th>
+                <th>Full Name</th>
+                <th>Aadhaar Number</th>
+                <th>Banned Reason</th>
+                <th>Flagged Date</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="blacklistBody">
+              <!-- Loaded via JavaScript -->
+            </tbody>
+          </table>
+        </div>
+        <div class="empty-blacklist" id="emptyState" style="display:none;">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--text-muted); margin-bottom:12px;">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+          <p>Threat registry database is empty. No restricted credentials found.</p>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- Unblock Confirmation Dialog -->
+  <div class="modal-overlay" id="confirmModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title">Confirm Access Restoration</h3>
+        <button class="modal-close" onclick="closeConfirmModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:0.875rem; color:var(--text-secondary); line-height:1.5;">
+          Are you sure you want to restore security clearance for <strong id="unblockName" style="color:var(--text-primary)">-</strong>? This will remove them from the blacklist database and restore standard visitor eligibility.
+        </p>
+        <input type="hidden" id="unblockAdhar">
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeConfirmModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="confirmUnblock()">Restore Clearance</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="global.js"></script>
+  <script>
+    Auth.requireAuth();
+
+    const blacklistBody = document.getElementById('blacklistBody');
+    const emptyState = document.getElementById('emptyState');
+    const confirmModal = document.getElementById('confirmModal');
+    const unblockName = document.getElementById('unblockName');
+    const unblockAdhar = document.getElementById('unblockAdhar');
+
+    const renderBlacklist = () => {
+      const list = Db.getBlacklist();
+      blacklistBody.innerHTML = '';
+
+      if (list.length === 0) {
+        emptyState.style.display = 'block';
+        document.querySelector('.blacklist-table').style.display = 'none';
+        return;
+      }
+
+      emptyState.style.display = 'none';
+      document.querySelector('.blacklist-table').style.display = 'table';
+
+      list.forEach(item => {
+        const dateObj = new Date(item.date);
+        const dateStr = dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td><img src="${item.photo}" class="blacklist-photo" alt="Photo"></td>
+          <td style="font-weight:600;">${item.name}</td>
+          <td style="font-family:var(--font-title); font-size:0.85rem;">
+            ${item.adhar.replace(/(.{4})/g, '$1 ')}
+          </td>
+          <td class="reason-text">${item.reason}</td>
+          <td style="font-size:0.8rem; color:var(--text-secondary);">${dateStr}</td>
+          <td>
+            <button class="btn btn-secondary" onclick="openUnblockModal('${item.adhar}', '${item.name.replace(/'/g, "\\'")}')" style="padding:4px 10px; font-size:0.75rem; border-color:var(--color-secure); color:var(--color-secure);">
+              Restore Access
+            </button>
+          </td>
+        `;
+        blacklistBody.appendChild(row);
+      });
+    };
+
+    // Modal triggers
+    const openUnblockModal = (adhar, name) => {
+      unblockAdhar.value = adhar;
+      unblockName.textContent = name;
+      confirmModal.classList.add('active');
+    };
+
+    const closeConfirmModal = () => {
+      confirmModal.classList.remove('active');
+    };
+
+    const confirmUnblock = () => {
+      const adhar = unblockAdhar.value;
+      const result = Db.removeFromBlacklist(adhar);
+      
+      if (result) {
+        Toast.show("Access credentials restored successfully.", "secure");
+        closeConfirmModal();
+        renderBlacklist();
+      } else {
+        Toast.show("Error: Clearance restoration failed.", "denied");
+      }
+    };
+
+    // Initial render
+    renderBlacklist();
+  </script>
+</body>
+</html>
