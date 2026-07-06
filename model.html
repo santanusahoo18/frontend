@@ -514,91 +514,144 @@
       }
     };
 
-    // Manual Mock triggers matching logic
-    const triggerMockFaceScan = () => {
+    // Helper to capture the current webcam frame as a Base64 image
+    const captureWebcamFrame = () => {
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = video.videoWidth || 640;
+      tempCanvas.height = video.videoHeight || 360;
+      const tempCtx = tempCanvas.getContext('2d');
+      try {
+        tempCtx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
+        return tempCanvas.toDataURL('image/jpeg', 0.85); // JPEG format, 85% quality
+      } catch (err) {
+        console.warn("Could not capture video frame:", err);
+        return null;
+      }
+    };
+
+    // UI Rendering Handlers for Face Detection Matches
+    const handleScanSuccess = (target) => {
+      AudioFeedback.playSuccess();
+      logDiag(`Biometric match CLEARED: ${target.name} [ID: ${target.empId}]`, "secure");
+      
+      matchTarget.innerHTML = `
+        <div class="match-profile secure">
+          <img src="${target.photo}" class="match-avatar" alt="Avatar">
+          <div class="match-details">
+            <h4>${target.name}</h4>
+            <p>${target.category} • ID: ${target.empId}</p>
+            <span class="status-badge secure" style="padding:0 5px; font-size:0.6rem;">Match Cleared</span>
+          </div>
+          <button class="btn btn-primary" onclick="window.location.href='print-preview.html?id=${target.id}'" style="padding:3px 8px; font-size:0.7rem; margin-left:auto;">
+            Pass
+          </button>
+        </div>
+      `;
+      Toast.show(`Biometric Match: ${target.name} recognized.`, 'secure');
+      Db.addLog('secure', `Biometric clear: ${target.name} (${target.category}) matched. Pass issuing cleared.`);
+    };
+
+    const handleScanBlacklist = (target) => {
+      AudioFeedback.playWarning();
+      logDiag(`SECURITY THREAT ALERT: Blacklisted record found for Aadhaar ${target.adhar}!`, "denied");
+      
+      matchTarget.innerHTML = `
+        <div class="match-profile denied">
+          <img src="${target.photo}" class="match-avatar" alt="Avatar">
+          <div class="match-details">
+            <h4 style="color:var(--color-denied);">${target.name}</h4>
+            <p style="color:var(--color-denied); opacity:0.8;">BLACKLISTED</p>
+            <p style="font-size:0.65rem; color:var(--text-muted); max-width:180px;">${target.reason}</p>
+          </div>
+        </div>
+      `;
+      Toast.show(`ALERT: Blacklisted Face Detected: ${target.name}!`, 'denied');
+      Db.addLog('denied', `Biometric block: Blacklisted person ${target.name} attempted entry. Reason: ${target.reason}.`);
+    };
+
+    const handleScanUnknown = () => {
+      AudioFeedback.playWarning();
+      logDiag("Euclidean similarity distance above clearance threshold (0.60)", "warning");
+      logDiag("Face signature unrecognized in template directory", "warning");
+      
+      matchTarget.innerHTML = `
+        <div class="match-profile warning">
+          <div class="match-avatar" style="display:flex; align-items:center; justify-content:center; background:var(--bg-tertiary); color:var(--color-warning);">?</div>
+          <div class="match-details">
+            <h4>Unrecognized Face</h4>
+            <p>No telemetry matches found.</p>
+          </div>
+          <button class="btn btn-secondary" onclick="window.location.href='register-person.html'" style="padding:3px 8px; font-size:0.7rem; margin-left:auto; border-color:var(--color-warning); color:var(--color-warning);">
+            Register
+          </button>
+        </div>
+      `;
+      Toast.show(`Unrecognized face. Register new visitor.`, 'warning');
+      Db.addLog('warning', `Biometric match warning: Unrecognized face detected. Directing to visitor registration.`);
+    };
+
+    // Helper sleep function for clean async delays
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    // Core Face Scanner execution function
+    const triggerMockFaceScan = async () => {
       if (!feedActive) toggleScanner();
 
       logDiag("Acquiring biometric facial signature canvas snapshot...", "sys");
       AudioFeedback.playProcessing();
+      await sleep(600);
 
+      logDiag("Extracting 128-dimensional Euclidean face vector...", "sys");
+      
+      // Capture frame base64 (ready to send to Python/Node API model)
+      const frameBase64 = captureWebcamFrame();
+      await sleep(400);
+
+      logDiag("Querying biometric identity directory templates...", "sys");
+      await sleep(400);
+
+      // =========================================================================
+      // INTEGRATION NOTE: TO CONNECT YOUR OWN REAL PYTHON MODEL OR DATABASE API
+      // Un-comment the code block below and adjust it to point to your backend:
+      // =========================================================================
+      /*
+      try {
+        const response = await fetch('http://localhost:5000/api/predict-face', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: frameBase64 })
+        });
+        
+        if (!response.ok) throw new Error("API request failed");
+        const result = await response.json(); // Expected payload: { status: 'secure'|'denied'|'unknown', person: {...} }
+        
+        if (result.status === 'secure') {
+          handleScanSuccess(result.person);
+        } else if (result.status === 'denied') {
+          handleScanBlacklist(result.person);
+        } else {
+          handleScanUnknown();
+        }
+        return;
+      } catch (err) {
+        logDiag("Telemetry prediction server connection offline. Running local simulation fallback.", "warning");
+      }
+      */
+
+      // Fallback simulation: local localStorage check
       const blacklist = Db.getBlacklist();
       const people = Db.getPeople();
+      const rand = Math.random();
 
-      setTimeout(() => {
-        logDiag("Extracting 128-dimensional Euclidean face vector...", "sys");
-        
-        setTimeout(() => {
-          logDiag("Querying biometric identity directory templates...", "sys");
-          
-          setTimeout(() => {
-            const rand = Math.random();
-            if (rand < 0.50 && people.length > 0) {
-              // MATCH EMPLOYEE/VISITOR
-              const target = people[Math.floor(Math.random() * people.length)];
-              
-              AudioFeedback.playSuccess();
-              logDiag(`Biometric match CLEARED: ${target.name} [ID: ${target.empId}]`, "secure");
-              
-              matchTarget.innerHTML = `
-                <div class="match-profile secure">
-                  <img src="${target.photo}" class="match-avatar" alt="Avatar">
-                  <div class="match-details">
-                    <h4>${target.name}</h4>
-                    <p>${target.category} • ID: ${target.empId}</p>
-                    <span class="status-badge secure" style="padding:0 5px; font-size:0.6rem;">Match Cleared</span>
-                  </div>
-                  <button class="btn btn-primary" onclick="window.location.href='print-preview.html?id=${target.id}'" style="padding:3px 8px; font-size:0.7rem; margin-left:auto;">
-                    Pass
-                  </button>
-                </div>
-              `;
-              Toast.show(`Biometric Match: ${target.name} recognized.`, 'secure');
-              Db.addLog('secure', `Biometric clear: ${target.name} (${target.category}) matched. Pass issuing cleared.`);
-
-            } else if (rand < 0.75 && blacklist.length > 0) {
-              // MATCH BLACKLIST
-              const target = blacklist[Math.floor(Math.random() * blacklist.length)];
-              
-              AudioFeedback.playWarning();
-              logDiag(`SECURITY THREAT ALERT: Blacklisted record found for Aadhaar ${target.adhar}!`, "denied");
-              
-              matchTarget.innerHTML = `
-                <div class="match-profile denied">
-                  <img src="${target.photo}" class="match-avatar" alt="Avatar">
-                  <div class="match-details">
-                    <h4 style="color:var(--color-denied);">${target.name}</h4>
-                    <p style="color:var(--color-denied); opacity:0.8;">BLACKLISTED</p>
-                    <p style="font-size:0.65rem; color:var(--text-muted); max-width:180px;">${target.reason}</p>
-                  </div>
-                </div>
-              `;
-              Toast.show(`ALERT: Blacklisted Face Detected: ${target.name}!`, 'denied');
-              Db.addLog('denied', `Biometric block: Blacklisted person ${target.name} attempted entry. Reason: ${target.reason}.`);
-
-            } else {
-              // NO MATCH / UNKNOWN
-              AudioFeedback.playWarning();
-              logDiag("Euclidean similarity distance above clearance threshold (0.60)", "warning");
-              logDiag("Face signature unrecognized in template directory", "warning");
-              
-              matchTarget.innerHTML = `
-                <div class="match-profile warning">
-                  <div class="match-avatar" style="display:flex; align-items:center; justify-content:center; background:var(--bg-tertiary); color:var(--color-warning);">?</div>
-                  <div class="match-details">
-                    <h4>Unrecognized Face</h4>
-                    <p>No telemetry matches found.</p>
-                  </div>
-                  <button class="btn btn-secondary" onclick="window.location.href='register-person.html'" style="padding:3px 8px; font-size:0.7rem; margin-left:auto; border-color:var(--color-warning); color:var(--color-warning);">
-                    Register
-                  </button>
-                </div>
-              `;
-              Toast.show(`Unrecognized face. Register new visitor.`, 'warning');
-              Db.addLog('warning', `Biometric match warning: Unrecognized face detected. Directing to visitor registration.`);
-            }
-          }, 400);
-        }, 400);
-      }, 600);
+      if (rand < 0.50 && people.length > 0) {
+        const target = people[Math.floor(Math.random() * people.length)];
+        handleScanSuccess(target);
+      } else if (rand < 0.75 && blacklist.length > 0) {
+        const target = blacklist[Math.floor(Math.random() * blacklist.length)];
+        handleScanBlacklist(target);
+      } else {
+        handleScanUnknown();
+      }
     };
 
     // Clean up animation on navigate

@@ -229,9 +229,99 @@ const Db = {
     if (logs.length > 100) logs.pop();
     localStorage.setItem('sec_logs', JSON.stringify(logs));
     window.dispatchEvent(new CustomEvent('sec_log_added', { detail: newLog }));
-    return newLog;
   }
 };
+
+// =========================================================================
+// DATABASE INTEGRATION TEMPLATE (FOR CONNECTING TO A REAL BACKEND DATABASE)
+// =========================================================================
+// If you want to connect this system to a backend database (FastAPI, Flask, Express, etc.),
+// you can replace the localStorage calls in the "Db" object above with HTTP requests.
+//
+// Below is an example template of how the asynchronous "Db" object would look:
+/*
+const AsyncDb = {
+  // 1. Fetch all registered people from DB
+  async getPeople() {
+    try {
+      const response = await fetch('/api/people');
+      return await response.json();
+    } catch (err) {
+      console.error("Error fetching people registry:", err);
+      return [];
+    }
+  },
+
+  // 2. Fetch a specific person by ID
+  async getPerson(id) {
+    try {
+      const response = await fetch(`/api/people/${id}`);
+      return await response.json();
+    } catch (err) {
+      console.error("Error fetching person details:", err);
+      return null;
+    }
+  },
+
+  // 3. Add a new registered person (Employee/Visitor) to DB
+  async addPerson(person) {
+    try {
+      const response = await fetch('/api/people', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(person)
+      });
+      return await response.json();
+    } catch (err) {
+      console.error("Error adding person:", err);
+      return null;
+    }
+  },
+
+  // 4. Add a record to the blacklist in DB
+  async addToBlacklist(person, reason) {
+    try {
+      const response = await fetch('/api/blacklist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ person_id: person.id, reason: reason })
+      });
+      return response.ok;
+    } catch (err) {
+      console.error("Error blacklisting person:", err);
+      return false;
+    }
+  },
+
+  // 5. Fetch all system activity logs from DB
+  async getLogs() {
+    try {
+      const response = await fetch('/api/logs');
+      return await response.json();
+    } catch (err) {
+      console.error("Error fetching logs:", err);
+      return [];
+    }
+  },
+
+  // 6. Append a new activity log entry to DB
+  async addLog(type, message) {
+    try {
+      const response = await fetch('/api/logs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, message })
+      });
+      const newLog = await response.json();
+      window.dispatchEvent(new CustomEvent('sec_log_added', { detail: newLog }));
+      return newLog;
+    } catch (err) {
+      console.error("Error adding log:", err);
+      return null;
+    }
+  }
+};
+*/
 
 // 4. Toast Notifications
 const Toast = {

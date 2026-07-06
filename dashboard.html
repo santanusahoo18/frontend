@@ -460,77 +460,19 @@
 
       <!-- Layout Split Columns -->
       <div class="layout-columns">
-        <!-- Live Scanner View -->
-        <div class="card scanner-section card-premium">
-          <div class="hud-container">
-            <div class="hud-corner top-left"></div>
-            <div class="hud-corner top-right"></div>
-            <div class="hud-corner bottom-left"></div>
-            <div class="hud-corner bottom-right"></div>
-            <div class="scan-line" id="camScanLine"></div>
-            
-            <!-- Video feed window -->
-            <div class="camera-frame">
-              <video id="webcamVideo" autoplay playsinline muted></video>
-              
-              <div class="camera-fallback" id="webcamFallback">
-                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-muted); margin-bottom:1rem;">
-                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
-                  <circle cx="12" cy="13" r="4"></circle>
-                </svg>
-                <p>Biometric Camera Feed</p>
-                <small style="color:var(--text-muted); opacity:0.7;">Webcam is offline. Use simulation actions below.</small>
-              </div>
-
-              <!-- Glowing scanner overlay boundary -->
-              <div class="scanner-overlay" id="scannerOverlay">
-                <div class="scanner-reticle"></div>
-                <div class="status-panel">
-                  <div class="status-dot"></div>
-                  <span id="scannerStatusText"></span>
-                </div>
-              </div>
-            </div>
+        <!-- Recent Security Logs -->
+        <div class="card logs-section card-premium">
+          <div class="logs-header">
+            <h2>Recent Security Logs</h2>
           </div>
-
-          <!-- Simulation Triggers for User Verification -->
-          <div style="margin-top: 1.5rem;">
-            <h4 style="font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); margin-bottom: 8px;">Trigger Simulation Scans (Manual Test Checks)</h4>
-            <div class="controls-panel">
-              <button class="btn btn-secondary" onclick="simulateScan('known_emp')" style="border-color: rgba(16, 185, 129, 0.4); text-transform: uppercase; font-size:0.75rem;">
-                Scan Known Employee
-              </button>
-              <button class="btn btn-secondary" onclick="simulateScan('unknown_vis')" style="border-color: rgba(245, 158, 11, 0.4); text-transform: uppercase; font-size:0.75rem;">
-                Scan Unknown Visitor
-              </button>
-              <button class="btn btn-secondary" onclick="simulateScan('blacklisted')" style="border-color: rgba(239, 68, 68, 0.4); text-transform: uppercase; font-size:0.75rem;">
-                Scan Blacklisted Face
-              </button>
-            </div>
+          <div class="logs-list" id="logsList">
+            <!-- Dynamically populated -->
           </div>
         </div>
-
-
       </div>
 
 
     </main>
-  </div>
-
-  <!-- Scan Details Modal Overlay -->
-  <div class="modal-overlay" id="scanModal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3 class="modal-title" id="modalTitle">Scan Telemetry Report</h3>
-        <button class="modal-close" onclick="closeModal()">&times;</button>
-      </div>
-      <div class="modal-body" id="modalBody">
-        <!-- populated dynamically -->
-      </div>
-      <div class="modal-footer" id="modalFooter">
-        <!-- populated dynamically -->
-      </div>
-    </div>
   </div>
 
   <script src="global.js"></script>
@@ -538,13 +480,8 @@
     Auth.requireAuth();
 
     // Elements
-    const video = document.getElementById('webcamVideo');
-    const fallback = document.getElementById('webcamFallback');
-    const scannerOverlay = document.getElementById('scannerOverlay');
-    const scannerStatusText = document.getElementById('scannerStatusText');
-    const camScanLine = document.getElementById('camScanLine');
-    const scanModal = document.getElementById('scanModal');
     const liveDate = document.getElementById('liveDate');
+    const logsList = document.getElementById('logsList');
 
     // Dashboard metrics
     const countPeople = document.getElementById('countPeople');
@@ -563,18 +500,28 @@
     setInterval(updateClock, 1000);
     updateClock();
 
-    // Webcam Access
-    navigator.mediaDevices.getUserMedia({ video: true })
-      .then(stream => {
-        video.srcObject = stream;
-        fallback.style.display = 'none';
-      })
-      .catch(err => {
-        console.warn("Webcam blocked or not available. Running fallback scan simulations.", err);
-        video.style.display = 'none';
-      });
-
-
+    // Render Recent Security Logs
+    const updateLogs = (logs) => {
+      if (!logsList) return;
+      if (!logs || logs.length === 0) {
+        logsList.innerHTML = `<div style="text-align:center; padding: 3rem 1.5rem; color: var(--text-muted); opacity: 0.6; font-size: 0.9rem;">No security logs registered yet.</div>`;
+        return;
+      }
+      logsList.innerHTML = logs.map(log => {
+        const timeStr = new Date(log.timestamp).toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        });
+        return `
+          <div class="log-item ${log.type}">
+            <div class="log-indicator"></div>
+            <div class="log-time">${timeStr}</div>
+            <div class="log-text">${log.message}</div>
+          </div>
+        `;
+      }).join('');
+    };
 
     // Update Counter metrics & conic gauge clearance rate
     const updateMetrics = () => {
@@ -592,152 +539,15 @@
       const alertLogs = logs.filter(l => l.type === 'denied' || l.type === 'warning').length;
       countAlerts.textContent = alertLogs > 0 ? alertLogs : "SECURE";
       countAlerts.style.color = alertLogs > 0 ? 'var(--color-warning)' : 'var(--color-secure)';
-    };
 
-    // Close Modal helper
-    const closeModal = () => {
-      scanModal.classList.remove('active');
-      scannerOverlay.className = "scanner-overlay";
-      scannerStatusText.textContent = "";
-      camScanLine.className = "scan-line";
+      // Render logs list
+      updateLogs(logs);
     };
 
     // Listen for real-time log additions
     window.addEventListener('sec_log_added', () => {
       updateMetrics();
     });
-
-    // Simulation Scan Runner
-    const simulateScan = (scanType) => {
-      // Trigger processing beep
-      AudioFeedback.playProcessing();
-      
-      // Set to scanning states
-      scannerOverlay.className = "scanner-overlay scanning";
-      scannerStatusText.textContent = "Scanning Biometrics...";
-      camScanLine.className = "scan-line";
-      
-      // Delay simulate scan (1.5s)
-      setTimeout(() => {
-        let modalHtml = '';
-        let modalTitleText = '';
-        let footerHtml = '';
-
-        if (scanType === 'known_emp') {
-          // Fetch an employee from db
-          const emps = Db.getPeople().filter(p => p.category === 'Employee');
-          if (emps.length === 0) {
-            Toast.show('No employees registered. Register one first!', 'warning');
-            closeModal();
-            return;
-          }
-          const randomEmp = emps[Math.floor(Math.random() * emps.length)];
-          
-          AudioFeedback.playSuccess();
-          scannerOverlay.className = "scanner-overlay granted";
-          scannerStatusText.textContent = "Access Granted";
-          
-          modalTitleText = "Access Cleared — Auto Gate Pass";
-          modalHtml = `
-            <div class="scanned-details-modal">
-              <img src="${randomEmp.photo}" class="scanned-photo secure" alt="Photo">
-              <div class="scanned-info-rows">
-                <div class="scanned-info-row"><strong>Name:</strong> ${randomEmp.name}</div>
-                <div class="scanned-info-row"><strong>Role/Category:</strong> ${randomEmp.category}</div>
-                <div class="scanned-info-row"><strong>Aadhaar No:</strong> ${randomEmp.adhar}</div>
-                <div class="scanned-info-row"><strong>Validity:</strong> 9:00 AM - 5:00 PM (Active)</div>
-                <div class="scanned-info-row"><span class="status-badge secure" style="padding: 2px 6px;">Clear</span></div>
-              </div>
-            </div>
-          `;
-          
-          footerHtml = `
-            <button class="btn btn-secondary" onclick="closeModal()">Close</button>
-            <button class="btn btn-primary" onclick="generatePass('${randomEmp.id}')">Print Gate Pass</button>
-          `;
-
-          // Add to log
-          Db.addLog('secure', `Biometric clear: ${randomEmp.name} (${randomEmp.category}) matched. Pass issuing cleared.`);
-
-        } else if (scanType === 'blacklisted') {
-          // Fetch blacklisted person
-          const blacklist = Db.getBlacklist();
-          if (blacklist.length === 0) {
-            Toast.show('No blacklist entries. Block a person first!', 'warning');
-            closeModal();
-            return;
-          }
-          const blocked = blacklist[Math.floor(Math.random() * blacklist.length)];
-          
-          AudioFeedback.playWarning();
-          scannerOverlay.className = "scanner-overlay denied";
-          scannerStatusText.textContent = "ACCESS BLOCKED / DENIED";
-          camScanLine.className = "scan-line alert";
-
-          modalTitleText = "WARNING: Access Denied / Blacklisted";
-          modalHtml = `
-            <div class="scanned-details-modal">
-              <img src="${blocked.photo}" class="scanned-photo denied" alt="Photo">
-              <div class="scanned-info-rows">
-                <div class="scanned-info-row" style="color:var(--color-denied); font-weight:700;">Biometric Threat Alert</div>
-                <div class="scanned-info-row"><strong>Name:</strong> ${blocked.name}</div>
-                <div class="scanned-info-row"><strong>Aadhaar No:</strong> ${blocked.adhar}</div>
-                <div class="scanned-info-row"><strong>Reason Blocked:</strong> <span style="color:var(--color-denied)">${blocked.reason}</span></div>
-                <div class="scanned-info-row"><span class="status-badge denied" style="padding: 2px 6px;">Blacklisted</span></div>
-              </div>
-            </div>
-          `;
-          
-          footerHtml = `
-            <button class="btn btn-danger btn-block" onclick="closeModal()">Close & Dispatch Alert</button>
-          `;
-
-          Db.addLog('denied', `Biometric block: Blacklisted person ${blocked.name} attempted entry. Reason: ${blocked.reason}.`);
-          Toast.show(`CRITICAL ALERT: Blacklist access attempt for ${blocked.name}!`, 'denied');
-
-        } else if (scanType === 'unknown_vis') {
-          AudioFeedback.playWarning();
-          scannerOverlay.className = "scanner-overlay warning";
-          scannerStatusText.textContent = "Visit Security - Unknown Face";
-          camScanLine.className = "scan-line";
-
-          modalTitleText = "Telemetry Match Status: Unrecognized Face";
-          modalHtml = `
-            <div class="scanned-details-modal">
-              <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--color-warning); background:var(--bg-secondary); border-radius:8px; padding:10px;">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                <circle cx="12" cy="7" r="4"></circle>
-              </svg>
-              <div class="scanned-info-rows">
-                <div class="scanned-info-row" style="color:var(--color-warning); font-weight:700;">Visitor Registration Required</div>
-                <p style="font-size:0.85rem; color:var(--text-secondary); max-width:280px;">No matching biometric facial signature could be found in the registry database. Please direct the visitor to the security registration terminal.</p>
-              </div>
-            </div>
-          `;
-          
-          footerHtml = `
-            <button class="btn btn-secondary" onclick="closeModal()">Close</button>
-            <button class="btn btn-primary" onclick="window.location.href='register-person.html'" style="background:var(--color-warning); color:#000;">Register New Visitor</button>
-          `;
-
-          Db.addLog('warning', `Biometric match warning: Unrecognized face detected. Directing to visitor registration.`);
-        }
-
-        // Display modal
-        document.getElementById('modalTitle').textContent = modalTitleText;
-        document.getElementById('modalBody').innerHTML = modalHtml;
-        document.getElementById('modalFooter').innerHTML = footerHtml;
-        scanModal.classList.add('active');
-
-        updateMetrics();
-      }, 1500);
-    };
-
-    // Helper redirect to print preview page
-    const generatePass = (personId) => {
-      closeModal();
-      window.location.href = `print-preview.html?id=${personId}`;
-    };
 
     // Initial render
     updateMetrics();
